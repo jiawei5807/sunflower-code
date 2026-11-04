@@ -1,133 +1,140 @@
-# 葵花码 · Sunflower Code
+# 葵花码 · 邀请制工作台
 
-将网页链接或二维码图片转换为葵花码。桌面与手机自适应，支持头像、PNG/SVG 下载和图片复制。
+网页链接 / 二维码转葵花码，支持单次邀请注册、账号登录、管理员控制台、生成用量统计和私有图片历史。
 
-> 项目原创代码使用 MIT。协议数据及默认图标的再分发授权尚未确认，已单独列于 [NOTICE](NOTICE)。当前为开源整理版本，请勿将整包描述为全部 MIT 或已完成授权清理。
+当前开发分支：`feature/invite-console`。**不修改 main，也不自动迁移现有生产环境。**
 
-## 部署到 Cloudflare Pages（推荐）
+> 原创代码使用 MIT。协议数据、默认中心图标与角标再分发授权仍待确认，详见 [NOTICE](NOTICE)。商业上线前需解决该授权事项。
 
-此方式由 Pages Functions 在服务端调用 Ace Data。**你在 Cloudflare 配置一次密钥，访客无需填写 Token，网页源码也不会包含密钥。**
+## 当前功能
 
-### 1. 连接仓库并设置构建
+- 管理员批量生成一次性邀请链接，支持有效期、备注、撤销和已使用账号查看。
+- 注册成功才消耗邀请码；并发注册同一邀请只有一个账号可成功。
+- 用户登录后才能使用生成器、转链、图片下载和历史记录；未登录不能调用生成 API。
+- 生成核心与 Ace Data 转链均在 Pages Functions 服务端执行，账号密码与 Token 不进入公开网页。
+- D1 记录成功生成事件；R2 保存包含头像的 SVG 原图。历史中可再次下载 SVG 或由浏览器导出 PNG。
+- 管理员查看账号、累计 / 今日 / 指定日期生成次数、最近登录；停用账号立即撤销所有会话。
+- 同一个请求标识重试不重复计数。生成失败不计数，下载、复制、头像与尺寸调整不重复计数。
+- 天蓝色响应式界面；支持二维码上传、拖放与粘贴，PNG/JPEG/WebP 头像。
 
-在 Cloudflare 控制台进入 **Workers & Pages → 创建应用 → Pages → 连接 Git 仓库**，选择 `jiawei5807/sunflower-code`。已有 Pages 项目则进入该项目的构建设置修改：
+## 部署到 Cloudflare Pages
 
-| 配置项 | 填写内容 |
+建议先为此分支建**独立预览项目**，使用单独的 D1 和 R2，不连接生产数据。
+
+### 1. 构建设置
+
+| 配置 | 值 |
 | --- | --- |
-| 生产分支 | `main` |
-| 框架预设 | `None`（无） |
+| 仓库分支 | `feature/invite-console` |
+| 框架预设 | None |
 | 构建命令 | `npm run build:pages` |
-| 构建输出目录 | `dist` |
-| 根目录 | 留空，使用仓库根目录 |
-| Node.js 版本 | `22`，可通过构建变量 `NODE_VERSION=22` 指定 |
+| 输出目录 | `dist` |
+| 根目录 | 仓库根目录 |
+| 构建变量 | `NODE_VERSION=22` |
 
-构建还需 `python3` 生成说明页面，使用 Cloudflare Pages 当前构建镜像即可；本地构建需自行安装 Python 3.9+。
+需要 Python 3.9+ 生成文档。当前版本必须运行 Pages Functions；不支持直接把 HTML 当成免登录静态工具使用。
 
-**必须使用 `build:pages`，不要使用普通的 `build`。** 它会在 dist 中生成 `_worker.js`（Pages Functions 高级模式）和 `_routes.json`，自动接入 `/api/shorten`。无需另建 Worker、数据库或手改 config.js，也无需在“绑定”中添加存储或服务。
+### 2. 创建 D1 并初始化表
 
-### 2. 配置一次服务端密钥
+Cloudflare 控制台 → **存储与数据库 → D1 → 创建数据库**，例如 `sunflower-preview`。
 
-进入 **Pages 项目 → Settings（设置）→ Variables and Secrets（变量与机密）**，选择 **Production（生产环境）**，添加：
+在数据库 Console 中执行 [migrations/0001_accounts.sql](migrations/0001_accounts.sql) 的完整内容，或使用 CLI：
+
+```sh
+npx wrangler d1 execute sunflower-preview --remote --file=migrations/0001_accounts.sql
+```
+
+这是新数据库的一次性建表脚本，不要在已有表的数据库上反复执行。后续升级通过新增迁移文件处理。
+
+### 3. 创建私有 R2 桶
+
+Cloudflare 控制台 → **R2 → 创建存储桶**，例如 `sunflower-images-preview`。
+
+保持私有：**不要开启 r2.dev 公共访问或绑定公开图片域名**。图片由登录用户通过受保护 API 读取。管理员可查看账号用量，但没有读取其他用户图片的后台接口。
+
+### 4. 配置 Pages 绑定
+
+Pages 项目 → **设置 → 绑定 → 添加**：
+
+| 类型 | 变量名称（必须一致） | 选择资源 |
+| --- | --- | --- |
+| D1 数据库 | `DB` | 上一步的 D1 数据库 |
+| R2 存储桶 | `IMAGES` | 上一步的私有 R2 桶 |
+
+### 5. 设置变量和机密
+
+Pages 项目 → **设置 → 变量和机密**，为实际部署环境添加：
 
 | 类型 | 名称 | 值 |
 | --- | --- | --- |
-| Secret（机密 / 加密变量） | `ACEDATA_TOKEN` | 你的 Ace Data Token 本体，不加 `Bearer ` 前缀 |
+| 普通变量 | `ADMIN_USERNAME` | 初始管理员账号，例如 `admin`；3～32 位字母、数字或下划线 |
+| Secret | `ADMIN_PASSWORD` | 初始管理员密码，12～128 位，使用随机强密码 |
+| Secret | `ACEDATA_TOKEN` | Ace Data Token 本体，不加 `Bearer ` 前缀 |
 
-这是 **Pages Functions 运行时机密**，不是写入源码的前端变量。无需设置 `HOST`、`PORT`、`PUBLIC_ORIGIN`，无需把 `.env.local` 上传。
+首次使用管理员账号登录时，服务端仅在没有管理员的数据库里创建该账号。后续登录使用数据库里的密码哈希，修改环境变量不会重置已有账号。
 
-如果需要分支预览地址也能自动转链，在 **Preview（预览环境）** 中另配同名机密。只配置生产环境不会自动配置预览环境。
+**首次登录后立即在页面修改密码，并从 Cloudflare 删除 `ADMIN_PASSWORD` 机密，再重新部署。** 管理员已保存在数据库，不会因此丢失。无需在代码里预置固定密码，也不提供公开的初始化接口。
 
-### 3. 保存后重新部署
+生产环境与预览环境绑定 / 机密分别配置。不要让不受信任的分支预览共享生产数据或生产机密。无需配置 HOST、PORT、PUBLIC_ORIGIN。
 
-保存变量后，在 **Deployments（部署）** 中重新部署最新提交，让新的机密绑定生效。之后从项目的 `*.pages.dev` 地址或绑定的自定义域名访问。
+### 6. 保存并重新部署，然后验收
 
-已经用 `npm run build` 部署过的项目，也要将构建命令改成 `npm run build:pages` 后重新部署。不要只添加变量而不更换构建命令。
+1. 打开站点应进入登录页，未登录直接访问 `/admin`、`/history` 也不能使用。
+2. 管理员登录 → 管理后台 → 生成邀请 → 复制链接。
+3. 无痕窗口打开邀请 → 注册 → 登录 → 生成图片。
+4. 查看历史记录并再次下载图片；后台账号累计次数应增加 1。
+5. 再用同一邀请注册应失败；停用账号后用户重新请求应退回登录。
 
-### 4. 验证部署
+更多说明见 [部署与数据维护](docs/deployment.md)、[使用说明](docs/usage.md)。
 
-- 短网址可直接生成；足够长的网址会自动转链并生成葵花码。
-- “高级设置”中不再显示要求访客填写 Token 的入口。
-- 浏览器请求应发往本站 `/api/shorten`，不会直接向 Ace Data 发送密钥。
-- 打开本站 `/config.js` 应看到 `shortenEndpoint: "/api/shorten"`，不应看到任何 Token。
+## 本地开发
 
-| 问题 | 检查方法 |
-| --- | --- |
-| 仍要求填写 Token | 确认构建命令为 `npm run build:pages`，最新部署成功，刷新页面；检查 /config.js。 |
-| 转链返回 503 | 对应生产 / 预览环境未配置 `ACEDATA_TOKEN`，或修改后未重新部署。 |
-| 转链返回 401 / 403 | 检查 Token 是否有效、账号权限以及是否误加 `Bearer ` 前缀；403 也可能是请求来源不匹配。 |
-| 转链返回 402 | 检查 Ace Data 余额或额度。 |
-| 转链返回 429 | 等待后重试，检查服务商限流和站点流量。 |
-| 转链返回 502 | 上游网络、超时或响应异常；在 Functions 日志检查状态后重试。 |
-
-公开访客使用的是站点账号的转链额度。函数有基础限流，但不是跨节点全局额度控制；需要严格保护额度时配置 Cloudflare 限流或访问控制。二维码图片和头像仍只在浏览器本地处理。
-
-## 本地运行
-
-需要 Node.js 22+、Python 3.9+（用于文档生成和浏览器测试）。应用无 npm 运行时依赖。
+Node.js 22+、Python 3.9+：
 
 ```sh
 npm ci
-npm run build
+cp .env.example .env.local
+# 在 .env.local 填写 ADMIN_PASSWORD，按需填写 ACEDATA_TOKEN
 npm run dev
 ```
 
-打开 http://127.0.0.1:5173 。默认不预填用户内容：粘贴网页链接后生成，或上传二维码自动生成。二维码与头像在浏览器本地处理。
+打开 http://127.0.0.1:5173 。本地通过 Miniflare/workerd 模拟 D1 和 R2，自动执行未应用的迁移，数据保存在被 Git 忽略的 `.wrangler/state/`。修改代码后重启 `npm run dev`。
 
-## 本地开发的自动转链
-
-容量内链接无需配置。需要超长链接自动转链时，在项目根目录创建 `.env.local`（已被 Git 忽略）：
+## 测试
 
 ```sh
-cp .env.example .env.local
-```
-
-填写 `ACEDATA_TOKEN` 后重启开发服务。密钥只由服务端读取，不下发到浏览器、dist 或发布包。纯静态部署可在页面“自动转链”中填写个人 Token，仅在当前页面内存中使用。
-
-不要提交真实 Token。公开托管需配置自身访问控制和服务额度；部署方式见 [部署说明](docs/deployment.md)。
-
-## 项目结构
-
-```text
-src/core/          编码、回读、SVG 绘制与兼容数据
-src/services/      二维码识别与短链客户端
-src/ui/            页面状态和交互
-src/styles/        响应式页面与文档样式
-public/vendor/     固定版本的 jsQR 与许可证
-cloudflare/        Pages Functions 服务端转链接口
-scripts/           开发服务器、构建、检查与发布工具
-tests/unit/       编码和服务接口测试
-tests/browser/    页面、自动转链、二维码完整流程测试
-docs/              使用、算法、部署、来源与验收说明
-```
-
-## 常用命令
-
-| 命令 | 作用 |
-| --- | --- |
-| `npm run dev` | 本地预览，可选服务端转链 |
-| `npm run build:pages` | 生成带 Pages Functions 的 Cloudflare Pages 部署目录 |
-| `npm run build` | 生成文档和可静态部署的 dist/ |
-| `npm test` | 编码与服务接口测试 |
-| `npm run check` | JavaScript 语法与常见密钥模式检查 |
-| `npm run test:browser` | 启动隔离服务，运行浏览器完整流程 |
-| `npm run release` | 检查、测试、构建并生成白名单源码包目录 |
-
-浏览器测试首次运行前：
-
-```sh
+npm run check
+npm run build:pages
+npm test
 python3 -m pip install -r tests/requirements.txt
 python3 -m playwright install chromium
 npm run test:browser
 ```
 
-`release/sunflower-code/` 不包含 `.env.local`、历史实验、私人数据或 Git 历史。执行发布命令不代表第三方授权已经确认。
+测试使用隔离 D1/R2 和模拟短链服务，不写生产库、不消耗真实账号额度。
 
-## 能力与边界
+## 目录
 
-- HTTP/HTTPS 网页链接，36 / 54 / 72 条射线，L/M/Q/H 纠错。
-- 上传、拖放、粘贴普通二维码；PNG/JPEG/WebP，最大 10 MB。
-- 本地生成，超容量时可选 Ace Data 转链；不使用短链时无需联网 API。
-- 内部回读检查不替代微信实机验证，国内网络可达性也需要实际测试。
-- 不解析微信专用小程序码、Wi-Fi 二维码或普通文字。
+```text
+cloudflare/          Pages 入口、认证、生成、管理 API
+migrations/          D1 版本化迁移
+src/core/            服务端编码与 SVG 绘制，不作为静态资源下发
+src/services/        本地二维码识别
+src/ui/              生成器、账号、历史和管理界面
+src/styles/          页面与控制台样式
+public/vendor/       jsQR 与许可证
+scripts/             构建、本地运行、测试和发布
+tests/integration/   workerd + D1 + R2 流程与权限测试
+tests/browser/       真实页面完整流程
+docs/                操作、部署、算法与验证边界
+```
 
-[使用说明](docs/usage.md) · [算法说明](docs/algorithm.md) · [来源说明](docs/provenance.md) · [参与贡献](CONTRIBUTING.md) · [安全说明](SECURITY.md)
+## 第一版边界
+
+当前不包含支付、套餐、短信、邮件找回、图片分享链接、批量删除或多管理员。成功历史不自动删除。短链继续使用 Ace Data；其访问和有效期取决于第三方服务。
+
+图片以 SVG 原图保存，PNG 按需从历史原图转换，不重复占用 R2。一次成功生成以“服务端 SVG 写入 R2 且 D1 标为成功”为准，即使用户关闭页面也会计数。打开历史、下载与外观修改不计数。用户主动再次点生成是新记录。
+
+D1 与 R2 无跨服务事务；实现了失败补偿和状态隔离，极端中断可能留下不计数的 pending 记录或孤立对象，处理方式见部署文档。邀请码、会话只存哈希；密码使用随机盐 PBKDF2-SHA256，100,000 轮（workerd 原生上限），结合数据库限流；商业上线可进一步接入 Turnstile 和更强身份服务。
+
+[来源与许可](NOTICE) · [安全说明](SECURITY.md) · [贡献指南](CONTRIBUTING.md)

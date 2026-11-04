@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="referrer" content="no-referrer" />
+    <title>登录 · 葵花码</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/src/styles/app.css" />
+    <link rel="stylesheet" href="/src/styles/console.css" />
+    <script defer src="/src/ui/api.js"></script>
+    <script defer src="/src/ui/account.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/login"><span class="brand-mark">✳</span>葵花码</a>
+    </header>
+    <main class="auth-card">
+      <h1 id="auth-title">登录</h1>
+      <p id="auth-help"></p>
+      <p id="page-message" class="notice-error" role="alert" hidden></p>
+      <form id="auth-form">
+        <label for="auth-username">账号</label
+        ><input
+          id="auth-username"
+          autocomplete="username"
+          pattern="[a-zA-Z0-9_]{3,32}"
+          minlength="3"
+          maxlength="32"
+          placeholder="3～32 位字母、数字或下划线"
+          required
+        /><label for="auth-password">密码</label
+        ><input
+          id="auth-password"
+          type="password"
+          autocomplete="current-password"
+          minlength="12"
+          maxlength="128"
+          placeholder="至少 12 位"
+          required
+        />
+        <div id="register-fields" hidden>
+          <label for="auth-confirm">确认密码</label
+          ><input
+            id="auth-confirm"
+            type="password"
+            autocomplete="new-password"
+            minlength="12"
+            maxlength="128"
+          />
+        </div>
+        <button id="auth-submit" class="primary" type="submit">登录</button>
+      </form>
+      <a id="auth-switch" href="/login" hidden>已有账号，前往登录 →</a>
+    </main>
+  </body>
+</html>

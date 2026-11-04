@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 const root = fileURLToPath(new URL('../', import.meta.url));
-for (const command of ['check', 'test', 'build']) {
+for (const command of ['check', 'build:pages', 'test']) {
   const p = spawnSync('npm', ['run', command], { cwd: root, stdio: 'inherit' });
   if (p.status !== 0) process.exit(p.status || 1);
 }
@@ -14,7 +14,10 @@ for (const name of [
   '.prettierignore',
   '.prettierrc.json',
   'index.html',
-  'config.js',
+  'auth.html',
+  'history.html',
+  'admin.html',
+  'migrations',
   'guide.html',
   'algorithm.html',
   'src',

@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>管理后台 · 葵花码</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/src/styles/app.css" />
+    <link rel="stylesheet" href="/src/styles/console.css" />
+    <script defer src="/src/ui/api.js"></script>
+    <script defer src="/src/ui/account.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/"><span class="brand-mark">✳</span>葵花码</a>
+      <nav>
+        <a href="/">生成器</a><a href="/history">历史记录</a
+        ><a id="admin-link" href="/admin" hidden>管理后台</a><span id="current-user"></span
+        ><button id="logout" type="button" class="inline-button">退出</button>
+      </nav>
+    </header>
+    <main class="console-main">
+      <div class="page-heading">
+        <div>
+          <h1>管理后台</h1>
+          <p>管理账号、单次邀请和生成用量</p>
+        </div>
+      </div>
+      <p id="page-message" class="notice-error" role="alert" hidden></p>
+      <section class="panel">
+        <h2>账号与用量</h2>
+        <form id="user-filter" class="filter-row">
+          <label>账号<input id="user-query" placeholder="搜索账号" maxlength="32" /></label
+          ><label>开始日期<input id="date-from" type="date" /></label
+          ><label>结束日期<input id="date-to" type="date" /></label
+          ><button class="primary" type="submit">查询</button>
+        </form>
+        <div class="table-scroll">
+          <table id="users-table">
+            <thead>
+              <tr>
+                <th>账号</th>
+                <th>角色</th>
+                <th>状态</th>
+                <th>累计生成</th>
+                <th>今日</th>
+                <th>所选时段</th>
+                <th>注册时间</th>
+                <th>最近登录</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="users-body"></tbody>
+          </table>
+        </div>
+        <div class="pagination">
+          <button id="users-prev">上一页</button><span id="users-page"></span
+          ><button id="users-next">下一页</button>
+        </div>
+        <p class="field-hint">
+          按服务端成功生成次数统计，下载、复制和外观调整不重复计数；日期按北京时间。
+        </p>
+      </section>
+      <section class="panel">
+        <h2>生成邀请</h2>
+        <form id="invite-form" class="filter-row">
+          <label
+            >数量<input
+              id="invite-count"
+              type="number"
+              min="1"
+              max="50"
+              value="1"
+              required /></label
+          ><label
+            >有效天数<input
+              id="invite-days"
+              type="number"
+              min="1"
+              max="90"
+              value="7"
+              required /></label
+          ><label class="grow"
+            >备注<input
+              id="invite-note"
+              maxlength="100"
+              placeholder="例如：第一批体验用户" /></label
+          ><button class="primary" type="submit">生成邀请</button>
+        </form>
+        <div id="invite-result" hidden>
+          <p class="field-hint">
+            请现在复制并保存链接，离开页面后无法再次查看。每条链接只能注册一次。
+          </p>
+          <textarea id="invite-links" rows="4" readonly></textarea
+          ><button id="copy-invites" type="button">复制全部链接</button>
+        </div>
+      </section>
+      <section class="panel">
+        <h2>邀请记录</h2>
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>备注</th>
+                <th>状态</th>
+                <th>注册账号</th>
+                <th>到期时间</th>
+                <th>使用时间</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="invites-body"></tbody>
+          </table>
+        </div>
+        <div class="pagination">
+          <button id="invites-prev">上一页</button><span id="invites-page"></span
+          ><button id="invites-next">下一页</button>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

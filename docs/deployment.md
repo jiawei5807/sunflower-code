@@ -1,53 +1,41 @@
-# 部署说明
+# 部署与数据维护
 
-## Cloudflare Pages：访客无需填写 Token
+## Cloudflare 资源
 
-推荐通过 Git 集成部署，按 [README 的完整步骤](../README.md#部署到-cloudflare-pages推荐) 设置：
+按 README 创建并绑定 D1 `DB`、私有 R2 `IMAGES`。Pages 构建命令 `npm run build:pages`，输出 `dist`。整个站点均经 Functions 路由，不能排除历史图片 API 或后台 API 的鉴权。
 
-- 构建命令 `npm run build:pages`，输出目录 `dist`，框架 None，生产分支 main。
-- 在 Pages 项目生产环境的 Variables and Secrets 中添加运行时 Secret `ACEDATA_TOKEN`，值只填写 Token 本体。
-- 预览环境需要独立配置同名 Secret；保存后重新部署。
-- 无需 HOST、PORT 或 PUBLIC_ORIGIN；无需单独创建 Worker 或数据库。
+运行时变量：ADMIN_USERNAME、初始化机密 ADMIN_PASSWORD、转链机密 ACEDATA_TOKEN。管理员首次登录后从页面修改密码，删除初始化机密并重新部署。环境变量不能重置已有密码。生产 / 预览必须使用隔离资源。
 
-构建将 `cloudflare/worker.mjs` 复制为 `dist/_worker.js`，使用 Pages Functions 高级模式。`_routes.json` 仅让 `/config.js` 和 `/api/shorten` 执行函数，其他资源由静态托管提供。不要把 `_worker.js` 上传到普通静态托管并期待其执行；普通静态部署使用 `npm run build`。
+D1 migrations/0001_accounts.sql 仅初始化一次新库。已有免登录版本没有用户数据，因此此分支先用新预览库验收；不自动迁移生产配置。
 
-`/config.js` 返回本站接口路径，不返回密钥；接口通过 `env.ACEDATA_TOKEN` 读取服务端 Secret。即使机密缺失，访客也不会被要求填 Token，而是收到服务暂不可用的提示。机密只在运行时使用，构建不读取它。
+## 数据与图片
 
-函数验证同源 Origin、JSON、HTTP/HTTPS 链接与 32 KiB 请求体，固定请求 Ace Data，等待上限 20 秒。基础限流是每个 isolate 内存中的每 IP 每分钟 30 次，isolate 重启或请求分散到其他节点时不共享计数，不能当作全局限流。公网额度保护应结合 Cloudflare 限流规则或访问控制。
+- 用户、密码哈希、邀请哈希、会话哈希、生成记录、限流窗口和管理操作记录保存在 D1。
+- SVG 原图保存在私有 R2，包含用户头像；原始二维码截图不上传。SVG 可在浏览器导出 PNG。
+- 图片 API 同时检查会话、账号状态与记录所有者，禁止匿名和跨账号读取；不提供公开 R2 地址。
+- 原网址与短网址属于用户数据，不能把数据库导出或日志公开到 GitHub。
+- 停用账号保留历史数据，但所有会话失效。成功历史不自动过期或删除。
 
-官方说明：[高级模式](https://developers.cloudflare.com/pages/functions/advanced-mode/)、[Secrets](https://developers.cloudflare.com/pages/functions/bindings/#secrets)。
+## 计数与故障
 
-## 普通静态网站
+服务端每次生成先登记 pending，再写 R2，最后标为 ready。只有 ready 计入统计。D1 的 user_id + request_key 唯一约束保证并发相同请求不重复计数。不同请求标识视为新生成，不按网址去重。
 
-运行 `npm ci && npm run build`，将 dist/ 的完整内容部署至 HTTPS 静态托管服务。GitHub Pages、普通 Web 服务器等均可，支持部署到子路径。
+下载 / 复制 / 调整头像尺寸不增加条数。用户取消浏览器等待不会取消服务端已接收的生成；网络超时先查看历史，避免误操作创建新记录。
 
-默认不包含公共 Token。容量内链接、图片识别、头像处理和导出都在浏览器完成。超长链接由用户在页面填写个人 Ace Data Token 后直接请求服务商；该 Token 只在当前页内存使用。直接打开 dist/index.html 同样可用，复制图片取决于浏览器权限。
+D1 与 R2 不支持跨资源事务。明确失败会标记 failed 并尽力删除对象；突然中断可能留下 pending 或孤立对象。不要把 pending 手工改为 ready 来补统计：先核查对象和用户，再离线修复。R2 保存新外观后用 D1 条件更新指针，避免并发外观变更覆盖。
 
-## 服务端保存 Token
+## 防护与运维
 
-`npm run dev` 提供轻量本地服务器和 `/api/shorten`。`.env.local` 配置：
+所有写请求要求同源 Origin；身份基于 7 天 HttpOnly / Secure / SameSite Cookie，D1 每次检查账号状态。注销、改密码和停用账号撤销会话。不要以浏览器隐藏按钮作为权限边界。
 
-```sh
-ACEDATA_TOKEN=填写自己的密钥
-HOST=127.0.0.1
-PORT=5173
-PUBLIC_ORIGIN=
-```
+登录按来源 IP 与账号限流；注册、生成和邀请操作用 D1 原子计数跨节点限流。建议公开试运行时再配置 Cloudflare WAF / Turnstile，评估流量、存储费用与限额。密码派生使用 workerd 原生 PBKDF2-SHA256，100,000 次；登录限流不能代替强密码和持续安全评估。
 
-服务器只下发是否配置转链的信息，不下发 Token。只接受同源 JSON POST，固定调用 Ace Data，最大请求体 32 KiB，每个连接来源 IP 每分钟最多 30 次请求，上游超时 20 秒。不记录 Token 或请求正文。
+平台错误日志仅记录请求路径和错误类型，不输出密码、Token 或图片数据。迁移、绑定错误请在 Cloudflare 查看日志，不能把机密加入前端调试。
 
-公网部署可由 HTTPS 反向代理转发到本地服务，同时设置 `PUBLIC_ORIGIN=https://你的域名`。站点拥有者应增加自己的登录 / 流量限制，避免公共转链额度被滥用。此处的 IP 限流按 TCP 对端计数，不信任 X-Forwarded-For；反向代理后的所有用户会共享这个计数。
+备份和恢复应同时考虑 D1 与 R2。开启 Cloudflare 提供的恢复措施并定期验证；恢复某一方可能导致历史记录与图片不一致。不要对 R2 配置会删除仍被引用图片的自动生命周期规则。
 
-也可以自行部署同源 `/api/shorten`，编辑公共 config.js 的 `shortenEndpoint`。请求为 `{ "content": "https://..." }`，成功响应为 `{ "success": true, "data": { "url": "https://surl.id/r/..." } }`。请勿在 config.js 中填写 Token。
+## 本地环境
 
-## 更新
+npm run dev 自动构建并启动本地 workerd；D1 和 R2 持久化在 .wrangler/state，自动应用尚未执行的迁移。本地 .env.local 不进 Git。测试脚本使用临时目录和模拟 Ace Data，不调用真实服务。
 
-源文档位于 docs/usage.md、docs/algorithm.md；`npm run build` 自动生成 HTML 和脚本内容摘要，避免缓存旧版本。dist/、release/ 和私人环境配置均不进 Git。
-
-## 内容安全策略
-
-如启用 CSP，静态页面须允许同源脚本和样式、Blob 与 data 图片；个人 Token 直连模式需允许连接 `https://api.acedata.cloud`。服务端模式只需允许同源连接。
-
-## 发布前
-
-阅读 NOTICE 与 docs/release-checklist.md。当前协议数据、默认图标的授权尚未确认，不能因为构建通过就认定可以完整按 MIT 分发。
+本分支尚未配置任何线上 D1 或 R2，没有修改 main 或生产部署。授权状态见 NOTICE。

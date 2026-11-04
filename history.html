@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>历史记录 · 葵花码</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="/src/styles/app.css" />
+    <link rel="stylesheet" href="/src/styles/console.css" />
+    <script defer src="/src/ui/api.js"></script>
+    <script defer src="/src/ui/account.js"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="/"><span class="brand-mark">✳</span>葵花码</a>
+      <nav>
+        <a href="/">生成器</a><a href="/history">历史记录</a
+        ><a id="admin-link" href="/admin" hidden>管理后台</a><span id="current-user"></span
+        ><button id="logout" type="button" class="inline-button">退出</button>
+      </nav>
+    </header>
+    <main class="console-main">
+      <div class="page-heading">
+        <div>
+          <h1>历史记录</h1>
+          <p>所有成功生成的图片都会保存在这里</p>
+        </div>
+        <a class="action-link" href="/">生成新图片 ↗</a>
+      </div>
+      <p id="page-message" class="notice-error" role="alert" hidden></p>
+      <div id="history-list" class="history-grid"></div>
+      <div id="history-empty" class="panel empty-history" hidden>
+        还没有生成记录。<a href="/">去生成第一张葵花码</a>
+      </div>
+      <div class="pagination">
+        <button id="history-prev">上一页</button><span id="history-page"></span
+        ><button id="history-next">下一页</button>
+      </div>
+    </main>
+  </body>
+</html>

@@ -1,6 +1,6 @@
 {
   "name": "sunflower-code",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "把网页链接与二维码图片转换为葵花码",
   "license": "SEE LICENSE IN LICENSE",
@@ -8,16 +8,24 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "node scripts/server.mjs",
+    "dev": "npm run build:pages && node scripts/dev.mjs",
     "build": "node scripts/build.mjs",
-    "test": "node --test tests/unit/*.test.cjs tests/unit/*.test.mjs",
+    "test": "node --test tests/unit/codec.test.cjs tests/integration/*.test.mjs",
     "test:browser": "python3 scripts/test-browser.py",
     "check": "node scripts/check.mjs",
     "release": "node scripts/release.mjs",
-    "format": "prettier --write \"src/**/*.{js,css}\" \"scripts/*.mjs\" \"tests/unit/*.{cjs,mjs}\" index.html config.js package.json",
+    "format": "prettier --write \"src/**/*.{js,css}\" \"cloudflare/**/*.mjs\" \"scripts/*.mjs\" \"tests/**/*.mjs\" \"*.html\" package.json",
     "build:pages": "node scripts/build.mjs --pages"
   },
   "devDependencies": {
+    "esbuild": "0.25.12",
+    "miniflare": "4.20260730.0",
     "prettier": "3.6.2"
+  },
+  "overrides": {
+    "miniflare": {
+      "sharp": "0.35.5",
+      "undici": "7.30.1"
+    }
   }
 }

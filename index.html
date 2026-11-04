@@ -8,12 +8,11 @@
     <title>葵花码 · 链接转图片</title>
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="src/styles/app.css" />
-    <script defer src="config.js"></script>
-    <script defer src="src/core/protocol-data.js"></script>
-    <script defer src="src/core/codec.js"></script>
+    <link rel="stylesheet" href="src/styles/console.css" />
     <script defer src="vendor/jsQR-1.4.0.js"></script>
     <script defer src="src/services/qr-reader.js"></script>
-    <script defer src="src/services/shortener.js"></script>
+    <script defer src="src/ui/api.js"></script>
+    <script defer src="src/ui/account.js"></script>
     <script defer src="src/ui/app.js"></script>
   </head>
   <body>
@@ -23,9 +22,11 @@
         ><span class="brand-mark" aria-hidden="true">✳</span
         ><span>葵花码<span class="brand-sub">SUNFLOWER CODE</span></span></a
       >
-      <nav aria-label="帮助导航">
-        <a href="guide.html">使用说明 <span aria-hidden="true">↗</span></a
-        ><a href="algorithm.html" class="algorithm-link">算法说明</a>
+      <nav aria-label="导航">
+        <a href="/history">历史记录</a><a id="admin-link" href="/admin" hidden>管理后台</a
+        ><a href="/guide.html">使用说明</a><span id="current-user"></span
+        ><button id="password-open" class="inline-button" type="button">修改密码</button
+        ><button id="logout" class="inline-button" type="button">退出</button>
       </nav>
     </header>
     <main id="workspace">
@@ -110,9 +111,6 @@
             </div>
             <div class="error-box" id="error-box" hidden>
               <p id="error" role="alert"></p>
-              <button type="button" id="configure-error" class="inline-button" hidden>
-                设置转链服务 →
-              </button>
             </div>
             <button class="primary generate" id="generate" type="submit">
               <span id="generate-label">生成葵花码</span><span aria-hidden="true">↗</span>
@@ -164,9 +162,6 @@
                 >
               </div>
               <p class="field-hint">射线越多，容量越大；纠错越高，可容纳的内容越少。</p>
-              <div class="service-setting">
-                <button id="open-service" class="inline-button" type="button">自动转链设置</button>
-              </div>
             </details>
           </div>
         </section>
@@ -203,29 +198,28 @@
         </section>
       </div>
     </main>
-    <dialog id="service-dialog" aria-labelledby="service-title">
-      <form id="service-form">
-        <div class="dialog-heading">
-          <h2 id="service-title">自动转链</h2>
-          <button id="close-service" type="button" class="icon-button" aria-label="关闭设置">
-            ×
-          </button>
-        </div>
-        <p>网址超过容量时，转为短链接后再生成。原网址会提交给 Ace Data。</p>
-        <p id="server-service-note" class="service-note" hidden>此站点已配置转链服务，无需填写。</p>
-        <label class="field-label" for="service-token"
-          >个人 Token <span class="optional">可选</span></label
-        ><input
-          id="service-token"
-          type="password"
-          autocomplete="off"
-          placeholder="填写你的 Ace Data Token"
-        />
-        <p class="field-hint">仅当前页面有效，刷新后清除。不要填写他人的 Token。</p>
-        <p id="service-feedback" role="status"></p>
+    <dialog id="password-dialog">
+      <form id="password-form">
+        <h2>修改密码</h2>
+        <label
+          >当前密码<input
+            id="password-current"
+            type="password"
+            autocomplete="current-password"
+            required /></label
+        ><label
+          >新密码<input
+            id="password-new"
+            type="password"
+            autocomplete="new-password"
+            minlength="12"
+            maxlength="128"
+            required
+        /></label>
+        <p id="password-message" role="alert"></p>
         <div class="dialog-actions">
-          <button type="button" id="clear-service">清除</button
-          ><button class="primary" type="submit">完成</button>
+          <button id="password-close" type="button">取消</button
+          ><button class="primary" type="submit">保存并重新登录</button>
         </div>
       </form>
     </dialog>

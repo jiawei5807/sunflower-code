@@ -2,7 +2,8 @@
 'use strict';
 (() => {
   const $ = (id) => document.getElementById(id);
-  const codec = SunflowerCode;
+  const api = AppAPI;
+  let record = null;
   let code = null,
     avatar = '',
     png = null,
@@ -11,16 +12,16 @@
     avatarRevision = 0,
     previewUrl = '',
     copyTimer;
-  let shortenRequest = null,
+  let generationRequest = null,
     generating = false,
     qrRequest = null;
-  const shortener = SunflowerShortener;
+
   let sourceMode = 'link';
-  const error = (message, configure = false) => {
+  const error = (message) => {
     $('error').textContent = message;
     $('error-box').hidden = !message;
     $('url').setAttribute('aria-invalid', String(Boolean(message)));
-    $('configure-error').hidden = !configure;
+
     if (message) {
       $('result-badge').textContent = '需要处理';
       $('result-badge').dataset.state = 'error';
@@ -37,13 +38,14 @@
     qrRequest?.abort();
     qrRequest = null;
     $('qr-label').textContent = '选择二维码图片';
-    shortenRequest?.abort();
-    shortenRequest = null;
+    generationRequest?.abort();
+    generationRequest = null;
     generating = false;
     $('generate').disabled = false;
     $('generate-label').textContent = '生成葵花码';
     revision++;
     code = null;
+    record = null;
     png = null;
     svg = '';
     exportsEnabled(false);
@@ -65,7 +67,7 @@
       image.src = src;
     });
   }
-  async function render() {
+  async function render(source) {
     if (!code) return;
     const current = ++revision,
       snapshot = code,
@@ -74,7 +76,7 @@
     png = null;
     svg = '';
     status('正在生成…', true);
-    const source = codec.renderSvg(snapshot, { size, avatar });
+
     const objectUrl = URL.createObjectURL(new Blob([source], { type: 'image/svg+xml' }));
     try {
       const image = await loadImage(objectUrl);
@@ -95,10 +97,9 @@
       preview.height = size;
       $('preview').replaceChildren(preview);
       $('preview').classList.remove('stale');
-      $('code-info').textContent =
-        `${[36, 54, 72][snapshot.version]} 条射线 · ${snapshot.level} 纠错`;
+      $('code-info').textContent = `${snapshot.rays} 条射线 · ${snapshot.level} 纠错`;
       $('image-info').textContent = `${size} × ${size} PX`;
-      status('生成成功，可以保存或复制图片。');
+      status('已保存到历史记录，可以下载或复制图片。');
       $('result-badge').textContent = '已生成';
       $('result-badge').dataset.state = 'ready';
       exportsEnabled(true);
@@ -124,39 +125,42 @@
     $('result-badge').dataset.state = 'pending';
     const current = revision;
     const controller = new AbortController();
-    shortenRequest = controller;
+    generationRequest = controller;
     generating = true;
     const options = { version: $('version').value, level: $('level').value };
+    const appearance = { size: Number($('size').value), avatar };
     let timeout,
       timedOut = false;
     try {
-      const text = codec.validateUrl($('url').value);
-      let encoded;
-      try {
-        encoded = codec.encode(text, options);
-      } catch (cause) {
-        if (!(cause instanceof codec.CapacityError)) throw cause;
-        $('generate').disabled = true;
-        $('generate-label').textContent = '正在生成…';
-        status('正在处理长链接，请稍候…', true);
-        timeout = setTimeout(() => {
-          timedOut = true;
-          controller.abort();
-        }, 25000);
-        const shortUrl = await shortener.shorten(text, controller.signal);
-        clearTimeout(timeout);
-        if (current !== revision) return;
-        try {
-          encoded = codec.encode(shortUrl, options);
-        } catch (failure) {
-          if (failure instanceof codec.CapacityError)
-            throw new Error('短链接仍超出当前设置容量，请将射线和纠错改为自动后重新生成。');
-          throw failure;
-        }
-      }
+      const text = $('url').value.trim();
+      if (!/^https?:\/\//i.test(text)) throw new Error('链接需要以 https:// 或 http:// 开头。');
+      $('generate').disabled = true;
+      $('generate-label').textContent = '生成并保存中…';
+      status('正在生成并保存到历史记录…', true);
+      const operationKey = crypto.randomUUID();
+      timeout = setTimeout(() => {
+        timedOut = true;
+        controller.abort();
+      }, 30000);
+      const result = await api.request('/api/generate', {
+        method: 'POST',
+        body: {
+          content: text,
+          ...options,
+          ...appearance,
+          source: sourceMode,
+        },
+        key: operationKey,
+        signal: controller.signal,
+      });
       if (current !== revision) return;
-      code = encoded;
-      await render();
+      clearTimeout(timeout);
+      record = result;
+      code = result;
+      const encoded = result;
+      if (appearance.size !== Number($('size').value) || appearance.avatar !== avatar)
+        await updateAppearance();
+      else await render(result.svg);
       if (code === encoded && png && matchMedia('(max-width: 760px)').matches) {
         document.activeElement?.blur();
         document.querySelector('.result-panel').scrollIntoView({
@@ -166,15 +170,12 @@
       }
     } catch (cause) {
       if (current !== revision) return;
-      error(
-        timedOut ? '转链超时，请稍后重试。' : cause.message,
-        cause.code === 'SHORTENER_NOT_CONFIGURED',
-      );
+      error(timedOut ? '请求超时，请先查看历史记录，确认是否已生成。' : cause.message);
       status('请检查链接或重试', true);
     } finally {
       clearTimeout(timeout);
-      if (shortenRequest === controller) {
-        shortenRequest = null;
+      if (generationRequest === controller) {
+        generationRequest = null;
         generating = false;
         $('generate').disabled = false;
         $('generate-label').textContent = '生成葵花码';
@@ -211,7 +212,8 @@
       if (qrRequest !== controller || controller.signal.aborted) return;
       let url;
       try {
-        url = codec.validateUrl(text);
+        url = text.trim();
+        if (!/^https?:\/\//i.test(url)) throw new Error('二维码必须包含 HTTP/HTTPS 网页链接。');
       } catch (cause) {
         throw new Error(`二维码内容无法转换：${cause.message}`);
       }
@@ -243,7 +245,7 @@
   for (const id of ['version', 'level']) $(id).addEventListener('change', invalidate);
   $('size').addEventListener('change', () => {
     error('');
-    render();
+    updateAppearance();
   });
   $('png').addEventListener('click', () => {
     if (png) download(png, 'png');
@@ -314,7 +316,7 @@
       thumb.alt = '';
       $('avatar-preview').replaceChildren(thumb);
       $('clear-avatar').hidden = false;
-      await render();
+      await updateAppearance();
     } catch (cause) {
       if (current === avatarRevision) error(cause.message);
     } finally {
@@ -328,11 +330,11 @@
     $('avatar-preview').textContent = '＋';
     $('clear-avatar').hidden = true;
     error('');
-    render();
+    updateAppearance();
   });
   window.addEventListener('pagehide', () => {
     qrRequest?.abort();
-    shortenRequest?.abort();
+    generationRequest?.abort();
     if (previewUrl) URL.revokeObjectURL(previewUrl);
   });
   function switchTab(mode) {
@@ -392,7 +394,7 @@
     });
   $('choose-qr').addEventListener('drop', (event) => importQR(event.dataTransfer.files[0]));
   document.addEventListener('paste', (event) => {
-    if (sourceMode !== 'qr' || $('service-dialog').open) return;
+    if (sourceMode !== 'qr') return;
     const item = [...event.clipboardData.items].find(
       (item) => item.kind === 'file' && item.type.startsWith('image/'),
     );
@@ -401,30 +403,26 @@
       importQR(item.getAsFile());
     }
   });
-  function serviceState() {
-    $('server-service-note').hidden = !shortener.serverConfigured();
-    $('open-service').hidden = shortener.serverConfigured();
+  async function updateAppearance() {
+    if (!record) return;
+    const previous = record,
+      current = ++revision;
+    exportsEnabled(false);
+    status('正在保存外观…', true);
+    try {
+      const result = await api.request('/api/history/' + previous.id + '/appearance', {
+        method: 'POST',
+        body: { size: Number($('size').value), avatar },
+      });
+      if (current !== revision) return;
+      record = result;
+      code = result;
+      await render(result.svg);
+    } catch (cause) {
+      if (current === revision) {
+        error(cause.message);
+        status('保存失败，请重试。', true);
+      }
+    }
   }
-  const openService = () => {
-    $('service-feedback').textContent = '';
-    $('service-token').value = '';
-    $('service-dialog').showModal();
-  };
-  $('open-service').addEventListener('click', openService);
-  $('configure-error').addEventListener('click', openService);
-  $('close-service').addEventListener('click', () => $('service-dialog').close());
-  $('service-form').addEventListener('submit', (event) => {
-    event.preventDefault();
-    if ($('service-token').value.trim()) shortener.setToken($('service-token').value);
-    $('service-token').value = '';
-    serviceState();
-    $('service-dialog').close();
-  });
-  $('clear-service').addEventListener('click', () => {
-    shortener.setToken('');
-    $('service-token').value = '';
-    $('service-feedback').textContent = '个人 Token 已清除。';
-    serviceState();
-  });
-  serviceState();
 })();
