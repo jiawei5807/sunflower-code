@@ -37,3 +37,7 @@
 Cloudflare workerd 只接受 follow/manual 重定向模式。旧代码传入 redirect: error 时在请求构造阶段抛错，外层转换成通用 502。Miniflare 4.20260730.0 / workerd 实测：旧代码 502 且上游请求 0 次；修改为 manual 后 200 且上游请求 1 次（上游使用模拟响应）。3xx 上游响应仍拒绝，不跟随到其他地址。
 
 新增重定向拒绝用例，并将前端 502 提示改为上游连接失败；无需添加 Cloudflare 存储、数据库或服务绑定。
+
+修复提交 7a56a16 经 Cloudflare Pages 自动部署成功后，真实 Chromium 访问线上 https://sunflower-code.pages.dev/：同源转链返回 200，成功生成并下载 SVG，导出内容与服务返回的短链编码一致，页面无 JavaScript 异常。此次已验证生产环境 Token 生效。命令行无浏览器特征的请求另遇 Cloudflare 1010 拒绝，不能据此代替浏览器实际流程结论。
+
+CI 固定为 Ubuntu 24.04，避免 ubuntu-latest 升至 26.04 后 Playwright 1.52.0 无法安装浏览器依赖。
