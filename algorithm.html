@@ -390,7 +390,7 @@ const svg = SunflowerCode.renderSvg(result, { size: 1024, avatar: &#x27;&#x27; }
 <h3>14.5 服务端边界</h3>
 <p><code>scripts/server.mjs</code> 仅提供白名单静态资源和固定的转链接口，不提供任意文件访问或任意 URL 代理。Token 来自环境变量或被 Git 忽略的 <code>.env.local</code>，不下发到浏览器，不进入静态构建和发布包。</p>
 <p>接口要求同源 Origin 和 JSON POST，限制请求体 32 KiB、原网址 5000 个 UTF-16 代码单元，并再次验证 HTTP/HTTPS。每个 TCP 来源 IP 每分钟最多 30 次请求；固定上游请求超时 20 秒。响应只返回验证后的短链或通用错误，不回传密钥或上游任意字段。公开部署还应增加站点自身认证和限流。</p>
-<p>静态部署可使用个人直连模式，或连接自行部署的同源接口。构建会加入资源内容摘要，源码不硬编码账号。具体见 docs/deployment.md。第三方额度、有效期与网络可达性以服务商和实机结果为准。</p>
+<p>Cloudflare Pages 使用 <code>npm run build:pages</code>，将 <code>cloudflare/worker.mjs</code> 输出为 <code>_worker.js</code>，通过运行时 <code>env.ACEDATA_TOKEN</code> 读取机密；同源检查自动使用当前访问域名。其内存限流仅在单个 isolate 内有效，不保证跨节点全局限流。普通静态部署可使用个人直连模式，或连接自行部署的同源接口。构建会加入资源内容摘要，源码不硬编码账号。具体见 docs/deployment.md。第三方额度、有效期与网络可达性以服务商和实机结果为准。</p>
 <h2 id="section-15">15. 二维码图片转换</h2>
 <h3>15.1 读取与预处理</h3>
 <p><code>src/services/qr-reader.js</code> 提供 <code>SunflowerQR.read(file, signal)</code>，返回识别文本。图片仅通过本地 Blob URL 加载；只接受 PNG、JPEG、WebP，文件上限 10 MB，解码后像素总数上限 4000 万。图片加载超过 15 秒则报错。</p>

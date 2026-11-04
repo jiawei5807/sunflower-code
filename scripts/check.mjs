@@ -11,6 +11,8 @@ async function walk(relative) {
         '.git',
         '.env.local',
         '.env',
+        '.dev.vars',
+        '.wrangler',
         'node_modules',
         'dist',
         'release',

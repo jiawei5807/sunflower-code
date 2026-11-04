@@ -14,7 +14,8 @@
     "test:browser": "python3 scripts/test-browser.py",
     "check": "node scripts/check.mjs",
     "release": "node scripts/release.mjs",
-    "format": "prettier --write \"src/**/*.{js,css}\" \"scripts/*.mjs\" \"tests/unit/*.{cjs,mjs}\" index.html config.js package.json"
+    "format": "prettier --write \"src/**/*.{js,css}\" \"scripts/*.mjs\" \"tests/unit/*.{cjs,mjs}\" index.html config.js package.json",
+    "build:pages": "node scripts/build.mjs --pages"
   },
   "devDependencies": {
     "prettier": "3.6.2"

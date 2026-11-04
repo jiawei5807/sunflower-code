@@ -6,7 +6,12 @@ env={**os.environ,'PORT':'5178','ACEDATA_TOKEN':'','SUNFLOWER_BASE_URL':'http://
 server=subprocess.Popen(['node','scripts/server.mjs'],cwd=root,env=env)
 try:
  for attempt in range(40):
-  try:urllib.request.urlopen('http://127.0.0.1:5178/',timeout=1);break
+  if server.poll() is not None:raise RuntimeError('Test server exited; check whether port 5178 is already in use')
+  try:
+   urllib.request.urlopen('http://127.0.0.1:5178/',timeout=1)
+   time.sleep(.2)
+   if server.poll() is not None:raise RuntimeError('Test server exited')
+   break
   except Exception:time.sleep(.1)
  else:raise RuntimeError('Test server did not start')
  for name in ['editor_test.py','shortening_test.py','qr_test.py','ux_test.py']:

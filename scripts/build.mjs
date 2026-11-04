@@ -32,3 +32,12 @@ for (const name of ['index.html', 'guide.html', 'algorithm.html']) {
   await writeFile(path.join(dist, name), html);
 }
 console.log('Built static site in dist/ (no private configuration).');
+
+if (process.argv.includes('--pages')) {
+  await cp(path.join(root, 'cloudflare/worker.mjs'), path.join(dist, '_worker.js'));
+  await writeFile(
+    path.join(dist, '_routes.json'),
+    JSON.stringify({ version: 1, include: ['/api/shorten', '/config.js'], exclude: [] }, null, 2),
+  );
+  console.log('Cloudflare Pages Functions enabled. Set ACEDATA_TOKEN as a runtime secret.');
+}

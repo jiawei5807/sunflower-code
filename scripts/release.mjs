@@ -19,6 +19,7 @@ for (const name of [
   'algorithm.html',
   'src',
   'public',
+  'cloudflare',
   'docs',
   'scripts',
   'tests',

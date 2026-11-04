@@ -403,6 +403,7 @@
   });
   function serviceState() {
     $('server-service-note').hidden = !shortener.serverConfigured();
+    $('open-service').hidden = shortener.serverConfigured();
   }
   const openService = () => {
     $('service-feedback').textContent = '';
