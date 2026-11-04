@@ -50,7 +50,7 @@ with sync_playwright() as p:
  page.unroute(API);page.route(API,lambda r:respond(r,{'success':False,'error':{'message':'unavailable'}}))
  page.fill('#url',LONG+'b');page.click('#generate');expect(page.locator('#error')).to_contain_text('转链失败');expect(page.locator('#url')).to_have_value(LONG+'b');expect(page.locator('#generate')).to_be_enabled();expect(page.locator('#png')).to_be_disabled()
  page.unroute(API);page.route(API,reply);page.click('#generate');expect(page.locator('#png')).to_be_enabled()
- for status_code,message in [(401,'认证失败'),(403,'认证失败'),(402,'额度不足')]:
+ for status_code,message in [(401,'认证失败'),(403,'认证失败'),(402,'额度不足'),(502,'连接上游失败')]:
   page.unroute(API);page.route(API,lambda r,request,status_code=status_code:r.fulfill(status=status_code,headers={'Access-Control-Allow-Origin':'*'},content_type='text/plain',body='denied'))
   page.fill('#url',LONG+str(status_code));page.click('#generate');expect(page.locator('#error')).to_contain_text(message);expect(page.locator('#png')).to_be_disabled()
  for result_index,result in enumerate([{'data':{'url':SHORT}},{'success':False,'data':{'url':SHORT}},{'success':'true','data':{'url':SHORT}}]):

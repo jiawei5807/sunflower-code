@@ -31,3 +31,9 @@
 - 4 组 Worker 单元测试通过：静态资源回退、运行时机密使用、同源检查、内容校验、请求体上限、限流和上游错误。
 - 浏览器模拟 Pages 配置验证：转链无需用户配置，Token 入口隐藏，浏览器同源请求不携带 Authorization。构建产物不含本地真实 Token。
 - 本次未登录 Cloudflare 或部署线上项目；Pages 实际运行与机密绑定需按 README 部署后验证。
+
+## Pages 转链 502 修复
+
+Cloudflare workerd 只接受 follow/manual 重定向模式。旧代码传入 redirect: error 时在请求构造阶段抛错，外层转换成通用 502。Miniflare 4.20260730.0 / workerd 实测：旧代码 502 且上游请求 0 次；修改为 manual 后 200 且上游请求 1 次（上游使用模拟响应）。3xx 上游响应仍拒绝，不跟随到其他地址。
+
+新增重定向拒绝用例，并将前端 502 提示改为上游连接失败；无需添加 Cloudflare 存储、数据库或服务绑定。

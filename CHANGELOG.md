@@ -2,6 +2,9 @@
 
 ## 未发布
 
+- 修复 Cloudflare Workers 不支持 redirect: error 导致转链恒定返回 502；改用 manual，并拒绝上游重定向。
+- 502 错误明确提示上游连接失败，避免误导用户检查账号。
+
 - 增加 Cloudflare Pages Functions 构建，服务端读取 ACEDATA_TOKEN，访客无需配置。
 - README 补充生产 / 预览环境机密、构建设置和重新部署步骤。
 

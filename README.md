@@ -23,7 +23,7 @@
 
 构建还需 `python3` 生成说明页面，使用 Cloudflare Pages 当前构建镜像即可；本地构建需自行安装 Python 3.9+。
 
-**必须使用 `build:pages`，不要使用普通的 `build`。** 它会在 dist 中生成 `_worker.js`（Pages Functions 高级模式）和 `_routes.json`，自动接入 `/api/shorten`。无需另建 Worker、数据库或手改 config.js。
+**必须使用 `build:pages`，不要使用普通的 `build`。** 它会在 dist 中生成 `_worker.js`（Pages Functions 高级模式）和 `_routes.json`，自动接入 `/api/shorten`。无需另建 Worker、数据库或手改 config.js，也无需在“绑定”中添加存储或服务。
 
 ### 2. 配置一次服务端密钥
 

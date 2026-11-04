@@ -83,7 +83,8 @@ export function createWorker(fetchImpl = fetch) {
             'content-type': 'application/json',
           },
           body: JSON.stringify({ content: body.content }),
-          redirect: 'error',
+          // Workers supports only follow/manual. Reject 3xx below without forwarding credentials.
+          redirect: 'manual',
           signal: AbortSignal.timeout(20000),
         });
         if (!response.ok)

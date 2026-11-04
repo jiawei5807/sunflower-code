@@ -44,6 +44,8 @@
     if ([401, 403].includes(response.status))
       throw new Error('转链认证失败，请检查 Token 或账号权限。');
     if (response.status === 402) throw new Error('转链账号额度不足，请检查账号余额或配额。');
+    if (response.status === 502)
+      throw new Error('转链服务连接上游失败，请稍后重试或联系站点维护者。');
     if (response.status === 503) throw new Error('转链服务暂不可用，请联系站点维护者或稍后重试。');
     let result;
     try {

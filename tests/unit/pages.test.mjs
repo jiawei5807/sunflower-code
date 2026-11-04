@@ -41,6 +41,7 @@ test('Pages forwards exact JSON with secret and filters response', async () => {
   assert.deepEqual(await r.json(), { success: true, data: { url: 'https://surl.id/r/Abc123' } });
   assert.equal(sent.url, 'https://api.acedata.cloud/shorturl');
   assert.equal(sent.options.headers.authorization, 'Bearer ' + env.ACEDATA_TOKEN);
+  assert.equal(sent.options.redirect, 'manual');
   assert.deepEqual(JSON.parse(sent.options.body), { content });
 });
 test('Pages rejects invalid input, origin, methods and oversized bodies', async () => {
@@ -84,4 +85,17 @@ test('Pages handles upstream failure and best-effort isolate rate limit', async 
     Response.json({ success: true, data: { url: 'https://wrong.test/x' } }),
   );
   assert.equal((await bad.fetch(request({ content: 'https://a.cn' }), env)).status, 502);
+});
+
+test('Pages rejects upstream redirects without following their destination', async () => {
+  let calls = 0;
+  const w = createWorker(async (url, options) => {
+    calls++;
+    assert.equal(options.redirect, 'manual');
+    return new Response(null, { status: 302, headers: { location: 'https://other.test/collect' } });
+  });
+  const response = await w.fetch(request({ content: 'https://a.cn' }), env);
+  assert.equal(response.status, 502);
+  assert.deepEqual(await response.json(), { success: false });
+  assert.equal(calls, 1);
 });
