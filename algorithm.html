@@ -1,0 +1,408 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>算法说明 · 葵花码</title><link rel="stylesheet" href="src/styles/docs.css"><link rel="icon" href="data:,"></head><body><header class="topbar"><a class="brand" href="index.html">葵花码</a><a class="help-link" href="guide.html">使用说明</a></header><main class="guide"><a class="back" href="index.html">← 返回生成器</a><h1>葵花码算法说明</h1><nav class="doc-toc" aria-label="目录"><a href="#section-1">1. 处理流程</a><a href="#section-2">2. 输入校验</a><a href="#section-3">3. 载荷编码</a><a href="#section-4">4. 容量与自动选择</a><a href="#section-5">5. 补齐数据字节</a><a href="#section-6">6. Reed–Solomon 纠错</a><a href="#section-7">7. 放射矩阵与固定表</a><a href="#section-8">8. 掩码评分</a><a href="#section-9">9. 回读校验</a><a href="#section-10">10. SVG 几何绘制</a><a href="#section-11">11. 导出和交互状态</a><a href="#section-12">12. 完整计算示例</a><a href="#section-13">13. 复杂度与复用接口</a><a href="#section-14">14. 自动转链与密钥配置</a><a href="#section-15">15. 二维码图片转换</a></nav>
+<p>本文描述当前实现实际执行的算法。网页链接可手动输入，也可从上传的普通二维码图片中识别。编码以 HTTP/HTTPS 网页链接为输入，以放射状二值矩阵为中间结果，最后输出 SVG 或 PNG。编码与绘图在浏览器中完成，超容量时通过配置的转链服务申请短链接。</p>
+<h2 id="section-1">1. 处理流程</h2>
+<pre><code>
+链接校验
+
+  → 选择字母数字模式或 UTF-8 字节模式
+
+  → 写入模式、长度和载荷位
+
+  → 选择射线版本与纠错等级
+
+  → 终止位、字节补齐和填充
+
+  → 分块并计算 Reed–Solomon 纠错码
+
+  → 交织码字
+
+  → 写入放射矩阵、掩码和格式信息
+
+  → 对 32 种掩码评分，保留最佳结果
+
+  → 回读矩阵，校验并还原原链接
+
+  → 绘制 SVG，按需转换成 PNG
+
+</code></pre>
+<p><code>assets/codec.js</code> 实现编码、回读和绘制；<code>assets/protocol-data.js</code> 保存格式字、数据位置和掩码常量；<code>assets/app.js</code> 处理输入、头像和导出。</p>
+<h2 id="section-2">2. 输入校验</h2>
+<p>先执行 <code>trim()</code> 去除两端空白，再检查以下条件：</p>
+<ol>
+<li>输入不为空，必须以 HTTP 或 HTTPS 开头。</li>
+<li>文本内部不包含空白或 ASCII 控制字符。</li>
+<li>可通过浏览器 URL 解析，具有主机名。</li>
+<li>长度最多 5000 个 UTF-16 代码单元，超出则报输入错误，不提交转链。</li>
+</ol>
+<p><code>validateUrl</code> 只做输入校验；<code>encode</code> 对超过编码容量的输入抛出 <code>CapacityError</code>，与格式和参数错误区分。长度超过 512 个代码单元的有效链接直接判为编码超容量，其余按载荷位数与配置比较；这使较长网址可以进入自动转链流程。原文只去除两端空白，不补协议、不截断或删除参数。</p>
+<p>网页只捕获 <code>CapacityError</code> 启动转链；无效输入、非法版本或纠错等级不向第三方提交。编码库自身保持同步，只负责编码，不发起网络请求。</p>
+<h2 id="section-3">3. 载荷编码</h2>
+<h3>3.1 两种模式</h3>
+<p>如果所有字符都属于下面的 82 字符集合，使用字母数字模式。字符顺序决定其数值，不能调整：</p>
+<pre><code>
+0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!#$&amp;&#x27;()*+,/:;=?@-._~
+
+</code></pre>
+<p>该集合记为 <code>U</code>。字母数字模式还使用一个 45 字符集合 <code>A</code>，其中 Z 后面包含一个空格：</p>
+<pre><code>
+0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ $%*+-./:
+
+</code></pre>
+<p>若包含中文、Emoji 或其他不在 U 中的字符，整个输入采用 UTF-8 字节模式。百分号 <code>%</code> 不在 U 中，因此包含 <code>%20</code> 等转义序列的输入也会进入字节模式。</p>
+<h3>3.2 流式进制转换</h3>
+<p>字母数字模式先将文本转换为 A 中的字符：</p>
+<pre><code>
+value = unpackRadix(packRadix(text, U), A)
+
+</code></pre>
+<p>这里使用流式转换，不能替换成“把整个字符串作为一个大整数再转进制”，否则结果不同。</p>
+<p><code>packRadix(text, alphabet)</code> 的步骤如下：</p>
+<pre><code>
+value = 0
+
+leading = 0
+
+started = false
+
+bytes = []
+
+
+
+逐个读取字符：
+
+  digit = 字符在 alphabet 中的下标
+
+  若尚未开始且 digit == 0：leading += 1，继续
+
+  started = true
+
+  value = value × alphabet.length + digit
+
+  当 value &gt;= 256：
+
+    bytes 追加 value &amp; 255
+
+    value = floor(value / 256)
+
+
+
+若 value != 0：bytes 追加 value
+
+若 leading &gt; 255：拒绝输入
+
+返回 reverse(bytes 后面追加 leading)
+
+</code></pre>
+<p>首字节保存前导零字符数量；后续字节保存流式转换结果。这里的“零字符”指字符集下标为 0 的字符，即 <code>0</code>。</p>
+<p><code>unpackRadix(bytes, alphabet)</code> 的步骤如下：</p>
+<pre><code>
+value = 0
+
+digits = []
+
+
+
+依次读取 bytes[1:]：
+
+  value = value × 256 + byte
+
+  当 value &gt;= alphabet.length：
+
+    digits 追加 value % alphabet.length
+
+    value = floor(value / alphabet.length)
+
+
+
+若 value != 0：digits 追加 value
+
+再追加 bytes[0] 个零
+
+反转 digits，将每个下标映射为 alphabet 中的字符
+
+</code></pre>
+<p>例如，<code>packRadix(&quot;12&quot;, U)</code> 得到 <code>[0, 84]</code>；再用 A 解出 <code>&quot;1*&quot;</code>。实际链接也按相同规则转换。解码时交换 U 与 A，执行反向转换。</p>
+<h3>3.3 写入二进制字段</h3>
+<p>所有多位数值按高位在前写入，字节内部同样是最高位在前。</p>
+<div class="table-scroll"><table><thead><tr><th>字段</th><th>字母数字模式</th><th>UTF-8 字节模式</th></tr></thead><tbody>
+<tr><td>模式标识</td><td>4 位，数值 2，即 <code>0010</code></td><td>4 位，数值 4，即 <code>0100</code></td></tr>
+<tr><td>长度</td><td>9 位，转换后的 A 字符数</td><td>8 位，UTF-8 字节数</td></tr>
+<tr><td>内容</td><td>两字符一组写 11 位，剩一字符写 6 位</td><td>每个字节写 8 位</td></tr>
+</tbody></table></div>
+<p>字母数字模式下，一对字符的值为 <code>45 × a + b</code>，a、b 是它们在 A 中的下标。最大值为 2024，11 位可容纳。最后单个字符最大值为 44，使用 6 位。</p>
+<p>设转换后的字符数为 n，UTF-8 字节数为 m，则不含补齐部分的载荷位数为：</p>
+<pre><code>
+字母数字：B = 4 + 9 + 11 × floor(n / 2) + 6 × (n % 2)
+
+UTF-8：  B = 4 + 8 + 8 × m
+
+</code></pre>
+<p>这些模式借用了常见的位字段写法，但最终使用的是放射矩阵，并非标准 QR 方阵。</p>
+<h2 id="section-4">4. 容量与自动选择</h2>
+<p>内部版本 <code>v = 0、1、2</code> 分别对应界面中的 36、54、72 条射线。</p>
+<p>每个配置用三元组 <code>(D, P, K)</code> 表示：D 为全部数据字节数，P 为每块纠错字节数，K 为块数。D 包含模式、长度、载荷、补齐和填充，不等于可输入的链接字节数。</p>
+<div class="table-scroll"><table><thead><tr><th>射线 / 版本</th><th>L：D / P / K</th><th>M：D / P / K</th><th>Q：D / P / K</th><th>H：D / P / K</th></tr></thead><tbody>
+<tr><td>36 / 0</td><td>28 / 10 / 1</td><td>25 / 13 / 1</td><td>20 / 18 / 1</td><td>14 / 24 / 1</td></tr>
+<tr><td>54 / 1</td><td>38 / 14 / 1</td><td>35 / 17 / 1</td><td>26 / 13 / 2</td><td>20 / 16 / 2</td></tr>
+<tr><td>72 / 2</td><td>46 / 20 / 1</td><td>43 / 23 / 1</td><td>34 / 16 / 2</td><td>24 / 21 / 2</td></tr>
+</tbody></table></div>
+<p>每个版本的总码字数 <code>D + P × K</code> 固定，分别为 38、52、66 字节，对应 304、416、528 个数据位置。</p>
+<p>选择条件是 <code>B &lt;= 8D</code>。射线为自动时，外层按 0、1、2 遍历；纠错为自动时，内层按 H、Q、M、L 遍历，使用第一个满足条件的配置。手动指定的选项只尝试该值，容量不足时不会擅自改动。</p>
+<p>例如 <code>https://example.com</code> 的载荷为 134 位：36 条射线的 H 只有 112 位，装不下；Q 有 160 位，可以容纳，所以自动选择 36 条、Q 纠错，而不会继续选更多射线的 H。</p>
+<h2 id="section-5">5. 补齐数据字节</h2>
+<p>设当前位数为 B，容量为 <code>8D</code>：</p>
+<ol>
+<li>追加 <code>min(4, 8D − B)</code> 个零，作为终止位。</li>
+<li>继续追加零，直到位数为 8 的整数倍。</li>
+<li>每 8 位合并成一个字节。</li>
+<li>数据不足 D 字节时，交替追加 <code>0xEC</code>、<code>0x11</code>，直到恰好为 D。</li>
+</ol>
+<p>若原始载荷恰好用满容量，则不追加终止位。长度字段用于回读时确定载荷边界。</p>
+<h2 id="section-6">6. Reed–Solomon 纠错</h2>
+<h3>6.1 有限域</h3>
+<p>纠错运算在 GF(256) 上进行，使用本原多项式：</p>
+<pre><code>
+p(x) = x^8 + x^4 + x^3 + x^2 + 1
+
+十六进制表示：0x11D
+
+本原元：α = 2
+
+</code></pre>
+<p>域中的加法和减法都为按位异或。乘法通过指数表 <code>exp</code> 和对数表 <code>log</code> 计算：</p>
+<pre><code>
+若 a == 0 或 b == 0：mul(a, b) = 0
+
+否则：mul(a, b) = exp[log[a] + log[b]]
+
+</code></pre>
+<p><code>exp[0..254]</code> 依次保存 α 的幂；<code>exp[255..511]</code> 以 255 为周期重复，避免乘法时另做取模。</p>
+<h3>6.2 分块与生成多项式</h3>
+<p>将 D 个数据字节按顺序等分成 K 块，每块 <code>D/K</code> 字节。当前配置都可以整除。</p>
+<p>每块追加 P 个纠错字节。生成多项式为：</p>
+<pre><code>
+g(x) = ∏ (x + α^i)，i = 0..P−1
+
+</code></pre>
+<p>系数按从高次到低次保存。先把数据后面补 P 个零，再逐个数据位置消元：</p>
+<pre><code>
+work = data + P 个零
+
+for i = 0..data.length−1:
+
+  factor = work[i]
+
+  for j = 1..P:
+
+    work[i+j] ^= mul(g[j], factor)
+
+
+
+完整块 = 原数据 + work 的最后 P 个字节
+
+</code></pre>
+<p>输出保留原数据，纠错字节为多项式除法的余数，因此是系统码。</p>
+<h3>6.3 交织</h3>
+<p>依次取各块的第 0 个字节，再取各块第 1 个字节，直到所有字节输出完毕。例如两块 A、B 的结果为：</p>
+<pre><code>
+A0, B0, A1, B1, …, A_last, B_last
+
+</code></pre>
+<p>交织后，全部数据字节在前，全部纠错字节在后；每一部分内部按块交替。</p>
+<p>对于实现了完整纠错解码的接收端，每块 P 个纠错字节理论上可纠正最多 <code>floor(P/2)</code> 个未知位置的错误字节，或满足 <code>2e + s &lt;= P</code> 的错误与已知位置擦除组合。该界限不能直接换算为图片可遮挡面积。当前回读只计算校验综合值，发现异常即拒绝，不实现受损码纠正。</p>
+<h2 id="section-7">7. 放射矩阵与固定表</h2>
+<h3>7.1 逻辑坐标</h3>
+<p>矩阵固定为 <code>72 × 16</code>，下标为 <code>matrix[ray][ring]</code>。每个单元可能是 0、1 或 <code>null</code>：</p>
+<ul>
+<li>0：白色数据位或格式位。</li>
+<li>1：黑色数据位或格式位。</li>
+<li>null：该版本未使用的位置。</li>
+</ul>
+<p>72 个候选方向之间相差 5°。36 和 54 条版本通过固定表选择部分射线承载数据；定位图形和格式信息还会占用或调整相应位置，不能仅靠肉眼数黑线判断版本。</p>
+<h3>7.2 数据位置表</h3>
+<p><code>protocol-data.js</code> 的 <code>data</code> 有 3 行，每行 72 个整数。<code>data[v][ray]</code> 是一个 16 位位图：第 ring 位为 1，表示该位置用于写入交织码字。</p>
+<p>按 ray 从 0 到 71、ring 从 0 到 15 扫描位图，将位置依次写入列表。第 i 个位置的数据位为：</p>
+<pre><code>
+bit = (codeword[i &gt;&gt; 3] &gt;&gt; (7 − i % 8)) &amp; 1
+
+</code></pre>
+<p>三版本位置数量分别为 304、416、528，与总码字数相符。位置表同时为格式信息和定位区域留空。</p>
+<h3>7.3 掩码表</h3>
+<p><code>masks</code> 有 32 行，每行 72 个 16 位整数。第 m 个掩码在某位置的值为：</p>
+<pre><code>
+maskBit = (masks[m][ray] &gt;&gt; ring) &amp; 1
+
+matrix[ray][ring] = bit XOR maskBit
+
+</code></pre>
+<p>掩码的作用是改变黑白分布，回读时再次异或同样的掩码即可还原。掩码不加密数据，也不改变数据容量。</p>
+<h3>7.4 格式信息</h3>
+<p>纠错等级的格式标识为 <code>M=0、L=1、H=2、Q=3</code>。格式表 <code>formats</code> 有 384 项，即 <code>3 × 4 × 32</code> 种配置，每项是一个 18 位格式字。</p>
+<pre><code>
+index = (version × 4 + levelBits) × 32 + mask
+
+format = formats[index]
+
+</code></pre>
+<p>对所有奇数 ray（1、3、…、71），在 ring=6 写入：</p>
+<pre><code>
+matrix[ray][6] = (format &gt;&gt; (17 − ((ray−1)/2) % 18)) &amp; 1
+
+</code></pre>
+<p>这将 18 位格式字按高位在前写入两次。当前实现查固定表，不在运行时推导格式表或掩码表。精确复现需要保留这三组常量及其顺序；本文件中的公式配合 <code>protocol-data.js</code> 才构成完整定义。</p>
+<h3>7.5 射线端部延伸</h3>
+<p>完成数据和格式写入后，对当前版本的有效射线延伸端部：</p>
+<ul>
+<li>36 条版本处理奇数 ray；54 条版本处理不能被 4 整除的 ray；72 条版本处理全部 ray。</li>
+<li>在 ring≥3 的范围找到第一个非 null 单元，把 ring=3 到它之前的位置填为该单元的值。</li>
+<li>如果 ring=14 非 null，将同样的值复制到 ring=15。</li>
+</ul>
+<p>这些是绘图延伸位，不增加编码容量，也不作为新的载荷位回读。</p>
+<h2 id="section-8">8. 掩码评分</h2>
+<p>每个输入尝试全部 32 个掩码。对完成格式位和端部延伸的矩阵逐行扫描，统计：</p>
+<ul>
+<li>dark：所有非 null 单元中，1 的数量。</li>
+<li>total：所有非 null 单元数量。</li>
+<li>joins：同一射线上，每个连续黑色段从第 2 个单元开始，每多一个单元加 1。</li>
+<li>long：每个连续黑色段从第 8 个单元开始，每多一个单元加 1。</li>
+</ul>
+<pre><code>
+score = joins − 4 × long − 150 × abs(dark / total − 0.5)
+
+</code></pre>
+<p>较高得分倾向于保留适度连续线段，减少过长黑线，并使黑白比例接近一半。选择分数最高者；分数相同则保留编号较小、先遍历到的掩码。该评分针对放射状图案，并非标准 QR 的掩码评分规则。</p>
+<h2 id="section-9">9. 回读校验</h2>
+<p>生成图片前，从刚生成的逻辑矩阵恢复文本：</p>
+<ol>
+<li>从 ray=1、3、…、35 的 ring=6 读取第一份 18 位格式字，查格式表得到版本、等级和掩码；确认版本与调用参数一致。</li>
+<li>按数据位置表读取矩阵，对每位异或掩码，还原交织码字。</li>
+<li>反交织为 K 块，每块前 <code>D/K</code> 字节为数据，后 P 字节为纠错。</li>
+<li>对每块计算 <code>S_i = C(α^i)</code>，i 从 0 到 P−1。只要一个综合值非零，就拒绝该结果。</li>
+<li>按块顺序拼回数据，读取模式和长度。字母数字模式解出 A 字符后反向进制转换；字节模式用严格 UTF-8 解码。</li>
+<li>将回读字符串与去除两端空白后的输入逐字比较。不一致时停止生成。</li>
+</ol>
+<p>当前回读直接接受矩阵和已知版本，不从 PNG/SVG 提取像素。它只读取第一份格式信息，不利用第二份进行投票恢复，也不校验图像中的头像、定位圆或端部延伸。它用于检查编码数据是否完整，不能替代实际扫码器的图像定位、透视校正和识别。</p>
+<h2 id="section-10">10. SVG 几何绘制</h2>
+<h3>10.1 坐标转换</h3>
+<p>SVG 使用 <code>viewBox=&quot;0 0 1000 1000&quot;</code>，中心为 <code>(500, 500)</code>。候选方向 ray、径向位置 ring 对应：</p>
+<pre><code>
+θ = (180 + 5 × ray) × π / 180
+
+r = 250 + (ring − 3) × 1000 / 54
+
+x = 500 + r × cos(θ)
+
+y = 500 + r × sin(θ)
+
+</code></pre>
+<p>坐标保留三位小数。图像 y 轴朝下。只绘制 ring=3..15，ring=16 用于扫描时结束最后一个连续段。</p>
+<h3>10.2 圆点与线段</h3>
+<p>沿一条射线查找连续的 1：</p>
+<ul>
+<li>单个 1 绘制半径 9 的圆点。</li>
+<li>连续多个 1，从第一个位置连到最后一个位置，线宽 18，端点为圆头。</li>
+<li>0 或 null 都会中断连续段。</li>
+</ul>
+<p>数据图案颜色为 <code>#080908</code>，背景为白色。随后依次覆盖定位圆、中心图案和右下角标识。</p>
+<h3>10.3 固定图形与头像</h3>
+<p>三个定位圆中心分别为 <code>(204,204)</code>、<code>(796,204)</code>、<code>(204,796)</code>；由半径 47 的黑圆、32 的白圆及 9 的黑圆同心叠加。</p>
+<p>默认中心为 <code>(500,500)</code>、半径 224 的 <code>#444444</code> 圆，白色标识放大 2.2 倍。右下角为 <code>(800,800)</code>、半径 100 的 <code>#2eac4b</code> 圆，白色标识使用原尺寸。标识路径如下，采用无填充、白色描边、线宽 16、圆头及圆角连接：</p>
+<pre><code>
+M30-2C48-7 54-20 48-33C42-47 24-51 12-43
+
+C4-38 0-31 0-22V22C0 31-4 38-12 43
+
+C-24 51-42 47-48 33C-54 20-48 7-30 2
+
+</code></pre>
+<p>上传头像后，以图片替换默认中心，右下角标识保留。先从原图中心裁取边长为 <code>min(width,height)</code> 的正方形，缩放为 512 × 512 PNG；再嵌入 SVG 的 <code>(276,276)</code>、448 × 448 区域，并以半径 224 的圆裁剪。头像不进入编码载荷，所以不会改变射线数据。</p>
+<h2 id="section-11">11. 导出和交互状态</h2>
+<p>SVG 的宽高设置为 512、1024 或 2048，内部坐标始终为 1000 × 1000。PNG 导出时，将 SVG 加载为图片，绘制到指定像素尺寸的 Canvas，再调用 <code>toBlob(&quot;image/png&quot;)</code>。复制图片通过 Clipboard API 写入相同的 PNG Blob。</p>
+<p>SVG 内嵌头像的 PNG 数据，不依赖外部图片请求。下载后缩放 SVG，数据线条仍是矢量，头像清晰度受位图分辨率限制。</p>
+<p>渲染和头像读取都是异步操作。界面使用递增的版本号标记任务，旧任务完成时若版本号不匹配，就丢弃结果，避免快速修改输入后导出旧图片。修改链接和编码参数会使当前结果失效；修改头像或尺寸只重新绘制已有编码。</p>
+<h2 id="section-12">12. 完整计算示例</h2>
+<p>输入 <code>https://example.com</code>，射线和纠错均为自动：</p>
+<div class="table-scroll"><table><thead><tr><th>项目</th><th>结果</th></tr></thead><tbody>
+<tr><td>载荷模式</td><td>字母数字模式，转换后 22 个字符</td></tr>
+<tr><td>载荷位数</td><td>4 + 9 + 11 × 11 = 134 位</td></tr>
+<tr><td>版本 / 射线</td><td>0 / 36 条</td></tr>
+<tr><td>纠错等级</td><td>Q</td></tr>
+<tr><td>数据 / 纠错 / 块数</td><td>D=20、P=18、K=1</td></tr>
+<tr><td>补齐</td><td>4 个终止零 + 6 个对齐零 + 2 个填充字节</td></tr>
+<tr><td>总码字数</td><td>38 字节，即 304 位</td></tr>
+<tr><td>最佳掩码</td><td>6</td></tr>
+<tr><td>格式表下标</td><td>(0 × 4 + 3) × 32 + 6 = 102</td></tr>
+<tr><td>格式字</td><td>120809，即 18 位二进制 <code>011101011111101001</code></td></tr>
+<tr><td>评分</td><td>约 134.27014218009478</td></tr>
+</tbody></table></div>
+<p>20 个数据字节，十六进制表示：</p>
+<pre><code>
+20 b0 f7 cf 9c 11 67 06 c6 03 72 16 6d 06 88 89 98 00 ec 11
+
+</code></pre>
+<p>18 个纠错字节：</p>
+<pre><code>
+19 0f cc f9 bc da ad 42 b9 8e f8 4f 76 45 99 36 18 44
+
+</code></pre>
+<p>只有一个分块，因此交织结果就是上述两段依次拼接。写入矩阵、加掩码和格式位后，回读结果必须严格等于 <code>https://example.com</code>。</p>
+<h2 id="section-13">13. 复杂度与复用接口</h2>
+<p>输入长度为 n，载荷编码为 O(n)。每块数据长度为 k、纠错长度为 P，直接构造生成多项式为 O(P²)，计算余数为 O(kP)。32 次掩码评估各遍历固定的 72 × 16 矩阵，约为 <code>O(32 × 72 × 16)</code>；PNG 栅格化的像素处理量随边长 S 按 O(S²) 增长。</p>
+<p>页面依次加载 <code>protocol-data.js</code> 与 <code>codec.js</code> 后，可调用：</p>
+<pre><code>
+const result = SunflowerCode.encode(&#x27;https://example.com&#x27;, {
+
+  version: &#x27;auto&#x27;, // 或 0、1、2
+
+  level: &#x27;auto&#x27;   // 或 &#x27;L&#x27;、&#x27;M&#x27;、&#x27;Q&#x27;、&#x27;H&#x27;
+
+});
+
+const text = SunflowerCode.decode(result.matrix, result.version);
+
+const svg = SunflowerCode.renderSvg(result, { size: 1024, avatar: &#x27;&#x27; });
+
+</code></pre>
+<p><code>encode</code> 成功时返回版本、等级、掩码、矩阵、评分、输入文本、载荷位数、数据容量和交织码字；失败时抛出错误。<code>avatar</code> 必须为空或本地 PNG/JPEG/WebP 的 Base64 data URL。图像识别、目标网页访问与受损码修复不属于这三个接口的功能。</p>
+<h2 id="section-14">14. 自动转链与密钥配置</h2>
+<h3>14.1 调用条件</h3>
+<p>点击“生成葵花码”或二维码识别成功后，固定本次网址与编码参数。首先执行 <code>encode</code>，仅 <code>CapacityError</code> 会启动转链，格式或设置错误不提交网络请求。</p>
+<p>没有配置转链服务时，显示具体原因与“设置转链服务”入口。容量内内容仍可完全本地生成。</p>
+<h3>14.2 服务调用</h3>
+<p><code>src/services/shortener.js</code> 独立管理接口、缓存与限流：</p>
+<ul>
+<li>服务端模式：公共 <code>config.js</code> 只提供同源相对路径 <code>/api/shorten</code>。浏览器发送 <code>{ &quot;content&quot;: &quot;原网址&quot; }</code>，由服务器添加 Bearer Token 调用 <code>https://api.acedata.cloud/shorturl</code>。</li>
+<li>个人直连模式：在设置对话框填写自己的 Token，客户端在 HTTPS 请求的 Authorization 头中发送。Token 仅保存在当前页面内存，刷新后清除。</li>
+</ul>
+<p>请求方法为 POST，JSON 序列化保留中文、百分号、查询参数与片段，不截断原网址。客户端不携带 Cookie 或 Referer。跨域个人直连需要服务商支持 CORS 预检。</p>
+<p>成功响应：</p>
+<pre><code>
+{&quot;success&quot;:true,&quot;data&quot;:{&quot;url&quot;:&quot;https://surl.id/r/Abc123&quot;}}
+
+</code></pre>
+<p>HTTP 429 触发 60 秒冷却；401/403 提示认证失败；402 提示检查余额或配额；503 提示服务未就绪。其他响应同时检查 HTTP 状态与 <code>success === true</code>，非 JSON、网络错误和超时单独处理，不向页面透传服务商原始报错。</p>
+<h3>14.3 结果校验</h3>
+<p>短链必须符合 <code>https://surl.id/r/</code> 加 1～64 个字母、数字、下划线或连字符的形式，拒绝额外域名、协议、查询与片段。校验通过后按原射线和纠错重新编码；若仍装不下提示改为自动，不递归缩短。</p>
+<p>界面不展示短链地址，PNG/SVG 编码短链，输入框保留原网址。短链的跳转由服务商完成，不需要扫码者提供 Token。</p>
+<h3>14.4 缓存与并发</h3>
+<p>成功映射在当前页面 Map 中缓存，最多 256 条，满后移除最早记录；失败不缓存，刷新或更换个人 Token 时清空。服务商仍可能保留已生成短链。</p>
+<p>转链期间禁止重复提交。修改输入、编码参数或选择新二维码后，AbortController 取消旧任务等待，任务版本号防止迟到响应更新页面。前端等待约 25 秒，上游服务可能已收到被取消的请求。</p>
+<h3>14.5 服务端边界</h3>
+<p><code>scripts/server.mjs</code> 仅提供白名单静态资源和固定的转链接口，不提供任意文件访问或任意 URL 代理。Token 来自环境变量或被 Git 忽略的 <code>.env.local</code>，不下发到浏览器，不进入静态构建和发布包。</p>
+<p>接口要求同源 Origin 和 JSON POST，限制请求体 32 KiB、原网址 5000 个 UTF-16 代码单元，并再次验证 HTTP/HTTPS。每个 TCP 来源 IP 每分钟最多 30 次请求；固定上游请求超时 20 秒。响应只返回验证后的短链或通用错误，不回传密钥或上游任意字段。公开部署还应增加站点自身认证和限流。</p>
+<p>静态部署可使用个人直连模式，或连接自行部署的同源接口。构建会加入资源内容摘要，源码不硬编码账号。具体见 docs/deployment.md。第三方额度、有效期与网络可达性以服务商和实机结果为准。</p>
+<h2 id="section-15">15. 二维码图片转换</h2>
+<h3>15.1 读取与预处理</h3>
+<p><code>src/services/qr-reader.js</code> 提供 <code>SunflowerQR.read(file, signal)</code>，返回识别文本。图片仅通过本地 Blob URL 加载；只接受 PNG、JPEG、WebP，文件上限 10 MB，解码后像素总数上限 4000 万。图片加载超过 15 秒则报错。</p>
+<p>按原始宽高比绘制 Canvas，不裁切二维码。先把最长边限制在 1200 像素；若没有识别结果，再尝试最多 2400 像素。小图保留原尺寸，不重复尝试相同尺寸。背景填充白色，使透明二维码能正常参与像素分析。</p>
+<p>读取 RGBA 像素后交给随包附带的 jsQR 1.4.0。使用 <code>inversionAttempts: &#x27;attemptBoth&#x27;</code> 同时尝试常规与反色二维码，兼容旋转和一定程度的透视变化。两轮之间让出浏览器事件循环，并检查取消信号。</p>
+<h3>15.2 二维码解码</h3>
+<p>jsQR 将像素转为灰度，按局部区域计算阈值并二值化；根据定位图形的黑白比例和几何关系寻找二维码，估计版本与模块尺寸。随后通过透视映射将图像采样为方形模块矩阵，读取格式和版本信息、去除掩码、提取并解交织码字，使用 Reed–Solomon 纠错，最后按数字、字母数字、字节等二维码模式解析内容。</p>
+<p>这些步骤处理的是输入的普通 QR Code，与后续葵花码的数据布局和绘制算法不同。当前取 jsQR 首个成功解码的文本；多码图片不会列出候选或保证选择顺序，因此应先裁剪为单个二维码。</p>
+<h3>15.3 内容校验与自动生成</h3>
+<p>识别成功不代表内容可生成葵花码。识别文本先经过同一个 <code>SunflowerCode.validateUrl</code>：仅接受 HTTP/HTTPS，遵循现有长度和格式限制。普通文字、Wi-Fi 内容及其他协议均报错，不自动跳转、不提交给短链服务。</p>
+<p>校验通过后，把原链接填入输入框，调用既有 <code>generate()</code>，沿用当前头像、尺寸、射线和纠错。仅容量错误触发第 14 节的 Ace Data 自动转链。页面展示来源文件名与“查看链接”入口，不展示短链地址。</p>
+<h3>15.4 并发与资源回收</h3>
+<p>每次图片选择创建一个 AbortController。开始识别时使旧预览失效、禁用导出；输入变动、编码参数变动、新图片选择或离开页面均取消旧任务。图片加载、每轮像素分析以及结果写入前检查取消状态，只有当前任务可以更新输入或显示错误。读取库的单轮同步解码不能中途打断，但分析尺寸有上限，迟到结果也不会覆盖新任务。</p>
+<p>无论成功、失败或取消都释放 Blob URL；分析完成后缩小临时 Canvas 以释放像素缓冲。选择后清空文件输入框，使同一张图片也可再次上传。识别失败时保留原网址和设置，由用户更换图片或重新生成。</p>
+<p>二维码库离线随包提供，不依赖外部 CDN 或原生 BarcodeDetector。短网址二维码的完整转换可离线执行；超容量网址仍需联网调用转链服务。微信专用小程序码不属于普通 QR Code，本功能不解析它。</p></main><footer><span>葵花码 · 算法说明</span></footer></body></html>

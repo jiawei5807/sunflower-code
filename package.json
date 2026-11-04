@@ -1,0 +1,22 @@
+{
+  "name": "sunflower-code",
+  "version": "0.2.0",
+  "private": true,
+  "description": "把网页链接与二维码图片转换为葵花码",
+  "license": "SEE LICENSE IN LICENSE",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "node scripts/server.mjs",
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/unit/*.test.cjs tests/unit/*.test.mjs",
+    "test:browser": "python3 scripts/test-browser.py",
+    "check": "node scripts/check.mjs",
+    "release": "node scripts/release.mjs",
+    "format": "prettier --write \"src/**/*.{js,css}\" \"scripts/*.mjs\" \"tests/unit/*.{cjs,mjs}\" index.html config.js package.json"
+  },
+  "devDependencies": {
+    "prettier": "3.6.2"
+  }
+}

@@ -1,0 +1,46 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>使用说明 · 葵花码</title><link rel="stylesheet" href="src/styles/docs.css"><link rel="icon" href="data:,"></head><body><header class="topbar"><a class="brand" href="index.html">葵花码</a><a class="help-link" href="algorithm.html">算法说明</a></header><main class="guide"><a class="back" href="index.html">← 返回生成器</a><h1>葵花码使用说明</h1><nav class="doc-toc" aria-label="目录"><a href="#section-1">1. 先选择内容来源</a><a href="#section-2">2. 调整外观</a><a href="#section-3">3. 保存与分享</a><a href="#section-4">4. 网址太长怎么办</a><a href="#section-5">5. 常见问题</a><a href="#privacy">6. 隐私与数据</a><a href="#compatibility">7. 识别范围</a><a href="#section-8">8. 进一步了解</a></nav>
+<h2 id="section-1">1. 先选择内容来源</h2>
+<ul>
+<li><strong>网页链接</strong>：粘贴完整的 <code>https://</code> 或 <code>http://</code> 网址，点击“生成葵花码”。也可以点击“试试示例”体验。</li>
+<li><strong>上传二维码</strong>：选择一张图片，或拖入图片、粘贴截图。识别后自动生成，不需要再点一次生成。</li>
+</ul>
+<p>二维码图片支持 PNG、JPG、WebP，最大 10 MB、4000 万像素。图片应包含一个清晰完整的普通方形二维码，内容必须是网页链接。识别成功后可点击“查看链接”检查或编辑原网址。</p>
+<h2 id="section-2">2. 调整外观</h2>
+<p>点击“添加头像”选择图片；图片会自动居中裁剪，点击“移除”恢复默认图案。头像支持 PNG、JPG、WebP，最大 10 MB。</p>
+<p>图片尺寸默认为 1024 × 1024，适合大多数分享场景。可以选择 512 或 2048。调整头像和尺寸会自动更新已有图片。</p>
+<p>“高级设置”默认收起。保留“自动选择”即可。射线有 36、54、72 条；纠错有 L、M、Q、H。射线越多，容量通常越大；纠错越高，可容纳的数据越少。修改射线或纠错后需要重新生成。</p>
+<h2 id="section-3">3. 保存与分享</h2>
+<ul>
+<li><strong>下载 PNG</strong>：适合聊天分享、文档插图和大多数使用场景。</li>
+<li><strong>下载 SVG</strong>：适合设计排版、放大和印刷，头像仍为位图。</li>
+<li><strong>复制图片</strong>：把 PNG 复制到剪贴板，需要浏览器支持并允许权限；推荐使用 HTTPS 或 localhost。</li>
+</ul>
+<p>桌面端在右侧预览与保存，手机端在输入区域下方，生成成功后自动移到预览区域。生成前或修改内容后，下载按钮会暂时禁用，避免保存旧图片。出错时按页面提示处理后重新生成。</p>
+<p>分享前请用实际使用的微信或扫码器测试图片，并确认最终网页可以打开。</p>
+<h2 id="section-4">4. 网址太长怎么办</h2>
+<p>超出编码容量的网址需要先转为短链接，生成的葵花码保存的是短链接。原始网址和参数会完整提交给 Ace Data，扫码后由短链服务跳转至原网址。</p>
+<p>展开“高级设置”，点击“自动转链设置”：</p>
+<ul>
+<li><strong>站点已配置</strong>：超长链接会自动转链，无需额外操作。</li>
+<li><strong>站点未配置</strong>：填写自己的 Ace Data Token。Token 只保存在当前页面内存，刷新后清除。</li>
+</ul>
+<p>站点维护者也可以在服务器配置服务，访客无需填写 Token。额度、计费和短链有效期以服务商规则为准。没有配置时，容量内链接和二维码转换仍可正常使用。</p>
+<h2 id="section-5">5. 常见问题</h2>
+<div class="table-scroll"><table><thead><tr><th>情况</th><th>处理方式</th></tr></thead><tbody>
+<tr><td>提示协议不支持</td><td>使用 http:// 或 https:// 网页链接。小程序分享口令和普通文字不支持。</td></tr>
+<tr><td>未识别到二维码</td><td>使用清晰原图，保留二维码周围空白；截图过大时先裁剪。</td></tr>
+<tr><td>识别出非链接内容</td><td>换成包含网页地址的二维码，Wi-Fi 配置等内容不能转换。</td></tr>
+<tr><td>短链接仍超过容量</td><td>将射线与纠错都恢复为自动选择。</td></tr>
+<tr><td>转链失败</td><td>检查网络、Token 和账号余额；稍后重试。</td></tr>
+<tr><td>提示频繁请求</td><td>至少等待一分钟，避免连续重复提交。</td></tr>
+<tr><td>复制失败</td><td>允许剪贴板权限，或直接下载 PNG。</td></tr>
+<tr><td>短链打不开</td><td>在目标网络、浏览器和微信中测试短链及原网页。</td></tr>
+</tbody></table></div>
+<h2 id="privacy">6. 隐私与数据</h2>
+<p>二维码识别、头像裁剪和图片生成都在浏览器本地完成，图片不上传。只有超容量的网址在生成时会提交给转链服务。</p>
+<p>本页面不保存输入历史或头像。成功短链仅在当前页面内存缓存，最多 256 条；刷新清除。清空页面缓存不代表第三方删除已经生成的短链。</p>
+<p>个人 Token 不写入图片或浏览器持久存储。自行部署公开网站时，应在服务端配置密钥，具体见项目部署文档。</p>
+<h2 id="compatibility">7. 识别范围</h2>
+<p>输入图片识别支持普通 QR Code，不解析微信专用小程序码。内部编码回读通过，不代表所有微信版本或网络已经验证可用。</p>
+<h2 id="section-8">8. 进一步了解</h2>
+<p><a href="algorithm.html">查看算法说明</a>。项目开发和部署方法见源码中的 README 与 docs/deployment.md。</p></main><footer><span>葵花码 · 使用说明</span></footer></body></html>

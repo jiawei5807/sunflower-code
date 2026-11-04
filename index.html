@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="theme-color" content="#f0f8ff" />
+    <meta name="description" content="把网页链接或二维码图片转换为葵花码，支持头像和高清导出。" />
+    <title>葵花码 · 链接转图片</title>
+    <link rel="icon" href="data:," />
+    <link rel="stylesheet" href="src/styles/app.css" />
+    <script defer src="config.js"></script>
+    <script defer src="src/core/protocol-data.js"></script>
+    <script defer src="src/core/codec.js"></script>
+    <script defer src="vendor/jsQR-1.4.0.js"></script>
+    <script defer src="src/services/qr-reader.js"></script>
+    <script defer src="src/services/shortener.js"></script>
+    <script defer src="src/ui/app.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#workspace">跳到生成器</a>
+    <header class="site-header">
+      <a class="brand" href="./" aria-label="葵花码首页"
+        ><span class="brand-mark" aria-hidden="true">✳</span
+        ><span>葵花码<span class="brand-sub">SUNFLOWER CODE</span></span></a
+      >
+      <nav aria-label="帮助导航">
+        <a href="guide.html">使用说明 <span aria-hidden="true">↗</span></a
+        ><a href="algorithm.html" class="algorithm-link">算法说明</a>
+      </nav>
+    </header>
+    <main id="workspace">
+      <h1 class="sr-only">葵花码生成器</h1>
+      <div class="workspace">
+        <section class="editor" aria-labelledby="input-title">
+          <div class="section-heading">
+            <span class="step">01</span>
+            <h2 id="input-title">添加内容</h2>
+          </div>
+          <div class="tabs" role="tablist" aria-label="内容来源">
+            <button
+              id="tab-link"
+              role="tab"
+              aria-selected="true"
+              aria-controls="panel-link"
+              tabindex="0"
+              type="button"
+            >
+              网页链接</button
+            ><button
+              id="tab-qr"
+              role="tab"
+              aria-selected="false"
+              aria-controls="panel-qr"
+              tabindex="-1"
+              type="button"
+            >
+              上传二维码
+            </button>
+          </div>
+          <form id="form" novalidate>
+            <div id="panel-link" role="tabpanel" aria-labelledby="tab-link">
+              <label class="field-label" for="url"
+                >网页链接
+                <button id="example" class="inline-button" type="button">试试示例</button></label
+              >
+              <div class="url-wrap">
+                <textarea
+                  id="url"
+                  rows="3"
+                  placeholder="https://example.com"
+                  spellcheck="false"
+                  autocomplete="off"
+                  inputmode="url"
+                  aria-describedby="url-hint error"
+                ></textarea
+                ><button
+                  id="clear-input"
+                  class="clear-input"
+                  type="button"
+                  aria-label="清空链接"
+                  hidden
+                >
+                  ×
+                </button>
+              </div>
+              <p class="field-hint" id="url-hint">支持 http:// 和 https:// 开头的网址</p>
+            </div>
+            <div id="panel-qr" role="tabpanel" aria-labelledby="tab-qr" hidden>
+              <button id="choose-qr" class="drop-zone" type="button">
+                <svg viewBox="0 0 40 40" fill="none" aria-hidden="true">
+                  <path
+                    d="M14 5H5v9M26 5h9v9M5 26v9h9M35 26v9h-9"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                  />
+                  <path
+                    d="M13 13h5v5h-5zM24 13h4v5h-4zM13 24h5v4h-5zM23 23h5v5h-5z"
+                    fill="currentColor"
+                  /></svg
+                ><strong id="qr-label">选择二维码图片</strong><span>也可以拖到这里，或粘贴截图</span
+                ><small>PNG / JPG / WebP · 最大 10 MB</small>
+              </button>
+              <input id="qr-file" type="file" accept="image/png,image/jpeg,image/webp" hidden />
+              <div id="qr-source" class="qr-source" hidden>
+                <span class="success-dot" aria-hidden="true"></span><span id="qr-file-name"></span
+                ><button id="edit-qr-link" class="inline-button" type="button">查看链接</button>
+              </div>
+              <p class="field-hint">上传后自动生成。支持普通网页二维码，不支持微信专用小程序码。</p>
+            </div>
+            <div class="error-box" id="error-box" hidden>
+              <p id="error" role="alert"></p>
+              <button type="button" id="configure-error" class="inline-button" hidden>
+                设置转链服务 →
+              </button>
+            </div>
+            <button class="primary generate" id="generate" type="submit">
+              <span id="generate-label">生成葵花码</span><span aria-hidden="true">↗</span>
+            </button>
+          </form>
+          <div class="customize">
+            <div class="section-heading">
+              <span class="step">02</span>
+              <h2>调整外观</h2>
+              <span class="optional">可选</span>
+            </div>
+            <div class="avatar-row">
+              <button type="button" id="choose-avatar" class="avatar-control" aria-label="上传头像">
+                <span id="avatar-preview" aria-hidden="true">＋</span
+                ><span><strong>添加头像</strong><small>让它更有辨识度</small></span></button
+              ><input
+                id="avatar"
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                hidden
+              /><button class="inline-button" type="button" id="clear-avatar" hidden>移除</button>
+            </div>
+            <div class="size-row">
+              <label for="size">图片尺寸</label
+              ><select id="size">
+                <option value="512">512 × 512</option>
+                <option value="1024" selected>1024 × 1024 · 推荐</option>
+                <option value="2048">2048 × 2048</option>
+              </select>
+            </div>
+            <details class="settings">
+              <summary>高级设置 <span>默认自动即可</span></summary>
+              <div class="settings-grid">
+                <label for="version"
+                  >射线数量<select id="version">
+                    <option value="auto">自动选择</option>
+                    <option value="0">36 条</option>
+                    <option value="1">54 条</option>
+                    <option value="2">72 条</option>
+                  </select></label
+                ><label for="level"
+                  >纠错等级<select id="level">
+                    <option value="auto">自动选择</option>
+                    <option value="L">L · 容量优先</option>
+                    <option value="M">M · 均衡</option>
+                    <option value="Q">Q · 较高纠错</option>
+                    <option value="H">H · 纠错优先</option>
+                  </select></label
+                >
+              </div>
+              <p class="field-hint">射线越多，容量越大；纠错越高，可容纳的内容越少。</p>
+              <div class="service-setting">
+                <button id="open-service" class="inline-button" type="button">自动转链设置</button>
+              </div>
+            </details>
+          </div>
+        </section>
+        <section class="result-panel" aria-labelledby="result-title">
+          <div class="result-heading">
+            <div class="section-heading">
+              <span class="step">03</span>
+              <h2 id="result-title">预览与保存</h2>
+            </div>
+            <span id="result-badge" class="result-badge" data-state="empty">等待内容</span>
+          </div>
+          <div class="preview-stage">
+            <div id="preview" class="preview">
+              <div class="empty-state">
+                <div class="empty-art" aria-hidden="true"><span>✳</span></div>
+                <strong>你的葵花码将在这里出现</strong>
+                <p>先添加链接，或上传一张二维码</p>
+              </div>
+            </div>
+          </div>
+          <div class="result-meta"><span id="code-info"></span><span id="image-info"></span></div>
+          <p id="status" class="result-status" role="status" aria-live="polite">
+            生成后可下载图片，或直接复制。
+          </p>
+          <div class="export">
+            <button id="png" class="primary" type="button" disabled>
+              下载 PNG <span>推荐</span>
+            </button>
+            <div class="secondary-exports">
+              <button id="svg" type="button" disabled>下载 SVG</button
+              ><button id="copy" type="button" disabled>复制图片</button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+    <dialog id="service-dialog" aria-labelledby="service-title">
+      <form id="service-form">
+        <div class="dialog-heading">
+          <h2 id="service-title">自动转链</h2>
+          <button id="close-service" type="button" class="icon-button" aria-label="关闭设置">
+            ×
+          </button>
+        </div>
+        <p>网址超过容量时，转为短链接后再生成。原网址会提交给 Ace Data。</p>
+        <p id="server-service-note" class="service-note" hidden>此站点已配置转链服务，无需填写。</p>
+        <label class="field-label" for="service-token"
+          >个人 Token <span class="optional">可选</span></label
+        ><input
+          id="service-token"
+          type="password"
+          autocomplete="off"
+          placeholder="填写你的 Ace Data Token"
+        />
+        <p class="field-hint">仅当前页面有效，刷新后清除。不要填写他人的 Token。</p>
+        <p id="service-feedback" role="status"></p>
+        <div class="dialog-actions">
+          <button type="button" id="clear-service">清除</button
+          ><button class="primary" type="submit">完成</button>
+        </div>
+      </form>
+    </dialog>
+    <noscript><p>请启用 JavaScript 后使用生成器。</p></noscript>
+  </body>
+</html>

@@ -1,0 +1,34 @@
+Sunflower Code - Third-party notices and pending rights
+
+1. Original project contributions
+   MIT, see LICENSE. This does not relicense third-party material below.
+
+2. jsQR 1.4.0
+   public/vendor/jsQR-1.4.0.js
+   Copyright (c) 2017 Cosmo Wolfe
+   Apache License 2.0, included in public/vendor/jsQR-LICENSE.txt.
+   Source: https://github.com/cozmo/jsQR
+
+3. Compatibility data - authorization pending
+   src/core/protocol-data.js contains format words, data positions and masks
+   extracted from the publicly served client of https://kuihuama.pages.dev/.
+   No redistribution license has been confirmed. These contents are NOT
+   offered under the project's MIT license.
+
+4. Default center / corner artwork - authorization pending
+   The default center and lower-right symbol paths in src/core/codec.js
+   reproduce the reference site's artwork and may involve third-party marks.
+   No redistribution or trademark permission has been confirmed. The artwork
+   is NOT offered under the project's MIT license. Screenshots / generated
+   examples containing this artwork have the same unresolved scope.
+
+5. Compatibility tests
+   tests/unit/reference-fixtures.json stores behavioral reference results
+   collected from the same site; provenance and distribution status must be
+   reviewed alongside the compatibility implementation.
+
+Release status: UI / source preparation is complete independently of the
+pending rights above. A fully cleared MIT release cannot be claimed until
+permission is obtained or the affected material is replaced. This repository
+is not an official WeChat/Tencent product and grants no trademark rights.
+See docs/provenance.md and docs/release-checklist.md.

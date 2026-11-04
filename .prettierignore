@@ -1,0 +1,8 @@
+node_modules/
+dist/
+release/
+public/vendor/
+src/core/protocol-data.js
+tests/unit/reference-fixtures.json
+guide.html
+algorithm.html

@@ -1,0 +1,1277 @@
+[
+  {
+    "text": "https://kuihuama.pages.dev/",
+    "version": "auto",
+    "level": "auto",
+    "expected": {
+      "version": 0,
+      "level": "M",
+      "mask": 6,
+      "hash": "7b3a93e6fcd7079902a84f8479a914c054ec1ad30b6a50d3d90228b8e2c2abf2"
+    }
+  },
+  {
+    "text": "https://kuihuama.pages.dev/",
+    "version": "auto",
+    "level": "L",
+    "expected": {
+      "version": 0,
+      "level": "L",
+      "mask": 6,
+      "hash": "20fa26178e8a4d8ecce91decf69afe77b24fb0b64c9c975eb743437a0843ed17"
+    }
+  },
+  {
+    "text": "https://kuihuama.pages.dev/",
+    "version": "auto",
+    "level": "M",
+    "expected": {
+      "version": 0,
+      "level": "M",
+      "mask": 6,
+      "hash": "7b3a93e6fcd7079902a84f8479a914c054ec1ad30b6a50d3d90228b8e2c2abf2"
+    }
+  },
+  {
+    "text": "https://kuihuama.pages.dev/",
+    "version": "auto",
+    "level": "Q",
+    "expected": {
+      "version": 1,
+      "level": "Q",
+      "mask": 3,
+      "hash": "1483cb9c5a642bb98e4e6051e7b588ee32740dd168e8c612c9a2022ca43d20fe"
+    }
+  },
+  {
+    "text": "https://kuihuama.pages.dev/",
+    "version": "auto",
+    "level": "H",
+    "expected": {
+      "version": 2,
+      "level": "H",
+      "mask": 24,
+      "hash": "0f806644dcd9ebdd30a1d60204db2d9cc4cd8fc0125154493e5c860a81de8b2f"
+    }
+  },
+  {
+    "text": "https://kuihuama.pages.dev/",
+    "version": 0,
+    "level": "auto",
+    "expected": {
+      "version": 0,
+      "level": "M",
+      "mask": 6,
+      "hash": "7b3a93e6fcd7079902a84f8479a914c054ec1ad30b6a50d3d90228b8e2c2abf2"
+    }
+  },
+  {
+    "text": "https://kuihuama.pages.dev/",
+    "version": 0,
+    "level": "L",
+    "expected": {
+      "version": 0,
+      "level": "L",
+      "mask": 6,
+      "hash": "20fa26178e8a4d8ecce91decf69afe77b24fb0b64c9c975eb743437a0843ed17"
+    }
+  },
+  {
+    "text": "https://kuihuama.pages.dev/",
+    "version": 0,
+    "level": "M",
+    "expected": {
+      "version": 0,
+      "level": "M",
+      "mask": 6,
+      "hash": "7b3a93e6fcd7079902a84f8479a914c054ec1ad30b6a50d3d90228b8e2c2abf2"
+    }
+  },
+  {
+    "text": "https://kuihuama.pages.dev/",
+    "version": 0,
+    "level": "Q",
+    "expected": {
+      "reject": true
+    }
+  },
+  {
+    "text": "https://kuihuama.pages.dev/",
+    "version": 0,
+    "level": "H",
+    "expected": {
+      "reject": true
+    }
+  },
+  {
+    "text": "https://kuihuama.pages.dev/",
+    "version": 1,
+    "level": "auto",
+    "expected": {
+      "version": 1,
+      "level": "Q",
+      "mask": 3,
+      "hash": "1483cb9c5a642bb98e4e6051e7b588ee32740dd168e8c612c9a2022ca43d20fe"
+    }
+  },
+  {
+    "text": "https://kuihuama.pages.dev/",
+    "version": 1,
+    "level": "L",
+    "expected": {
+      "version": 1,
+      "level": "L",
+      "mask": 1,
+      "hash": "1f76d4dc610191b5b66c207455fe430952f03e63b6fd4a3e9177ff73196d3fba"
+    }
+  },
+  {
+    "text": "https://kuihuama.pages.dev/",
+    "version": 1,
+    "level": "M",
+    "expected": {
+      "version": 1,
+      "level": "M",
+      "mask": 18,
+      "hash": "22cab26747406f51e3734a694b24444e9bec3724bddeb656df762e5a5b680a5e"
+    }
+  },
+  {
+    "text": "https://kuihuama.pages.dev/",
+    "version": 1,
+    "level": "Q",
+    "expected": {
+      "version": 1,
+      "level": "Q",
+      "mask": 3,
+      "hash": "1483cb9c5a642bb98e4e6051e7b588ee32740dd168e8c612c9a2022ca43d20fe"
+    }
+  },
+  {
+    "text": "https://kuihuama.pages.dev/",
+    "version": 1,
+    "level": "H",
+    "expected": {
+      "reject": true
+    }
+  },
+  {
+    "text": "https://kuihuama.pages.dev/",
+    "version": 2,
+    "level": "auto",
+    "expected": {
+      "version": 2,
+      "level": "H",
+      "mask": 24,
+      "hash": "0f806644dcd9ebdd30a1d60204db2d9cc4cd8fc0125154493e5c860a81de8b2f"
+    }
+  },
+  {
+    "text": "https://kuihuama.pages.dev/",
+    "version": 2,
+    "level": "L",
+    "expected": {
+      "version": 2,
+      "level": "L",
+      "mask": 23,
+      "hash": "d7c0da26f57663d4a2b31e986aeb5cbb0b5080daff2c7f008d5ed176d7b3e3c0"
+    }
+  },
+  {
+    "text": "https://kuihuama.pages.dev/",
+    "version": 2,
+    "level": "M",
+    "expected": {
+      "version": 2,
+      "level": "M",
+      "mask": 30,
+      "hash": "6ee52a77136291bda3ffe4906ad3a57f33dc79cf94a2d690ca993ec6e844a4a1"
+    }
+  },
+  {
+    "text": "https://kuihuama.pages.dev/",
+    "version": 2,
+    "level": "Q",
+    "expected": {
+      "version": 2,
+      "level": "Q",
+      "mask": 8,
+      "hash": "8052701a7922c9865b17e51cd0211ccc1c16efb0d7cb179f153be2a5531e0c78"
+    }
+  },
+  {
+    "text": "https://kuihuama.pages.dev/",
+    "version": 2,
+    "level": "H",
+    "expected": {
+      "version": 2,
+      "level": "H",
+      "mask": 24,
+      "hash": "0f806644dcd9ebdd30a1d60204db2d9cc4cd8fc0125154493e5c860a81de8b2f"
+    }
+  },
+  {
+    "text": "https://example.com",
+    "version": "auto",
+    "level": "auto",
+    "expected": {
+      "version": 0,
+      "level": "Q",
+      "mask": 6,
+      "hash": "b933267ac49e19690cad098cb23c142715659f71d84ffe107748e5f02dc362a9"
+    }
+  },
+  {
+    "text": "https://example.com",
+    "version": "auto",
+    "level": "L",
+    "expected": {
+      "version": 0,
+      "level": "L",
+      "mask": 27,
+      "hash": "7f019ed6940e77cae818c6d5f06fcf99fde6ba59fd6dee5ff7257b4d575a3ffb"
+    }
+  },
+  {
+    "text": "https://example.com",
+    "version": "auto",
+    "level": "M",
+    "expected": {
+      "version": 0,
+      "level": "M",
+      "mask": 14,
+      "hash": "87b7fe41472e36285560d470a08567ee9a7769710ea1684e86d5ec5bc5bd03cf"
+    }
+  },
+  {
+    "text": "https://example.com",
+    "version": "auto",
+    "level": "Q",
+    "expected": {
+      "version": 0,
+      "level": "Q",
+      "mask": 6,
+      "hash": "b933267ac49e19690cad098cb23c142715659f71d84ffe107748e5f02dc362a9"
+    }
+  },
+  {
+    "text": "https://example.com",
+    "version": "auto",
+    "level": "H",
+    "expected": {
+      "version": 1,
+      "level": "H",
+      "mask": 26,
+      "hash": "ddca00eb3da2bacd3b67ea6ad1b3d7cab043ddfd56bad135717c022094a6fb87"
+    }
+  },
+  {
+    "text": "https://example.com",
+    "version": 0,
+    "level": "auto",
+    "expected": {
+      "version": 0,
+      "level": "Q",
+      "mask": 6,
+      "hash": "b933267ac49e19690cad098cb23c142715659f71d84ffe107748e5f02dc362a9"
+    }
+  },
+  {
+    "text": "https://example.com",
+    "version": 0,
+    "level": "L",
+    "expected": {
+      "version": 0,
+      "level": "L",
+      "mask": 27,
+      "hash": "7f019ed6940e77cae818c6d5f06fcf99fde6ba59fd6dee5ff7257b4d575a3ffb"
+    }
+  },
+  {
+    "text": "https://example.com",
+    "version": 0,
+    "level": "M",
+    "expected": {
+      "version": 0,
+      "level": "M",
+      "mask": 14,
+      "hash": "87b7fe41472e36285560d470a08567ee9a7769710ea1684e86d5ec5bc5bd03cf"
+    }
+  },
+  {
+    "text": "https://example.com",
+    "version": 0,
+    "level": "Q",
+    "expected": {
+      "version": 0,
+      "level": "Q",
+      "mask": 6,
+      "hash": "b933267ac49e19690cad098cb23c142715659f71d84ffe107748e5f02dc362a9"
+    }
+  },
+  {
+    "text": "https://example.com",
+    "version": 0,
+    "level": "H",
+    "expected": {
+      "reject": true
+    }
+  },
+  {
+    "text": "https://example.com",
+    "version": 1,
+    "level": "auto",
+    "expected": {
+      "version": 1,
+      "level": "H",
+      "mask": 26,
+      "hash": "ddca00eb3da2bacd3b67ea6ad1b3d7cab043ddfd56bad135717c022094a6fb87"
+    }
+  },
+  {
+    "text": "https://example.com",
+    "version": 1,
+    "level": "L",
+    "expected": {
+      "version": 1,
+      "level": "L",
+      "mask": 12,
+      "hash": "22494ab288a5080baa6b507121a0c75f17d768408504dfcac6871beca33c3239"
+    }
+  },
+  {
+    "text": "https://example.com",
+    "version": 1,
+    "level": "M",
+    "expected": {
+      "version": 1,
+      "level": "M",
+      "mask": 12,
+      "hash": "dd46baef751cf80f19d233d332d2bcc182898992fca8f6799292262e292017f8"
+    }
+  },
+  {
+    "text": "https://example.com",
+    "version": 1,
+    "level": "Q",
+    "expected": {
+      "version": 1,
+      "level": "Q",
+      "mask": 0,
+      "hash": "7c4469be56210735d8ceb8b7535fb44b138c767507b2b76d8fda6a18134d6105"
+    }
+  },
+  {
+    "text": "https://example.com",
+    "version": 1,
+    "level": "H",
+    "expected": {
+      "version": 1,
+      "level": "H",
+      "mask": 26,
+      "hash": "ddca00eb3da2bacd3b67ea6ad1b3d7cab043ddfd56bad135717c022094a6fb87"
+    }
+  },
+  {
+    "text": "https://example.com",
+    "version": 2,
+    "level": "auto",
+    "expected": {
+      "version": 2,
+      "level": "H",
+      "mask": 25,
+      "hash": "7d2d923c74c454baf8e9a3b6110f45d8213099d21a48351c4fc4bf91671cca0e"
+    }
+  },
+  {
+    "text": "https://example.com",
+    "version": 2,
+    "level": "L",
+    "expected": {
+      "version": 2,
+      "level": "L",
+      "mask": 11,
+      "hash": "84e662a40d77f88aab583267011b862d978a1e880223c086c0690f58a592100b"
+    }
+  },
+  {
+    "text": "https://example.com",
+    "version": 2,
+    "level": "M",
+    "expected": {
+      "version": 2,
+      "level": "M",
+      "mask": 11,
+      "hash": "c0d390cbcf5d85f4e2ce9992c86aa9f65618919ca7dca21c1012827699937621"
+    }
+  },
+  {
+    "text": "https://example.com",
+    "version": 2,
+    "level": "Q",
+    "expected": {
+      "version": 2,
+      "level": "Q",
+      "mask": 2,
+      "hash": "8982fe61dc2aea0d7bfe2740c7202421d180e8241bb83f75a189cddfcaed08e2"
+    }
+  },
+  {
+    "text": "https://example.com",
+    "version": 2,
+    "level": "H",
+    "expected": {
+      "version": 2,
+      "level": "H",
+      "mask": 25,
+      "hash": "7d2d923c74c454baf8e9a3b6110f45d8213099d21a48351c4fc4bf91671cca0e"
+    }
+  },
+  {
+    "text": "http://a.cn",
+    "version": "auto",
+    "level": "auto",
+    "expected": {
+      "version": 0,
+      "level": "H",
+      "mask": 18,
+      "hash": "0345bddd9062f37fec3e9f7a813ae218b5a1fb3db908db57d5665386c3894917"
+    }
+  },
+  {
+    "text": "http://a.cn",
+    "version": "auto",
+    "level": "L",
+    "expected": {
+      "version": 0,
+      "level": "L",
+      "mask": 11,
+      "hash": "0f37eb917f94a7e74e0532676e7a2f15e27f9a442e3dd17894f6ac28ef4a2cd1"
+    }
+  },
+  {
+    "text": "http://a.cn",
+    "version": "auto",
+    "level": "M",
+    "expected": {
+      "version": 0,
+      "level": "M",
+      "mask": 14,
+      "hash": "9d2bc8f82fb38f9984c4eee3f0660839f852aa6137f3fbc0bb4c4a55ccc6b8d7"
+    }
+  },
+  {
+    "text": "http://a.cn",
+    "version": "auto",
+    "level": "Q",
+    "expected": {
+      "version": 0,
+      "level": "Q",
+      "mask": 14,
+      "hash": "975427448616ca69dcd5c73a8efed85f2bba5d584c465bf30648975725e15e9d"
+    }
+  },
+  {
+    "text": "http://a.cn",
+    "version": "auto",
+    "level": "H",
+    "expected": {
+      "version": 0,
+      "level": "H",
+      "mask": 18,
+      "hash": "0345bddd9062f37fec3e9f7a813ae218b5a1fb3db908db57d5665386c3894917"
+    }
+  },
+  {
+    "text": "http://a.cn",
+    "version": 0,
+    "level": "auto",
+    "expected": {
+      "version": 0,
+      "level": "H",
+      "mask": 18,
+      "hash": "0345bddd9062f37fec3e9f7a813ae218b5a1fb3db908db57d5665386c3894917"
+    }
+  },
+  {
+    "text": "http://a.cn",
+    "version": 0,
+    "level": "L",
+    "expected": {
+      "version": 0,
+      "level": "L",
+      "mask": 11,
+      "hash": "0f37eb917f94a7e74e0532676e7a2f15e27f9a442e3dd17894f6ac28ef4a2cd1"
+    }
+  },
+  {
+    "text": "http://a.cn",
+    "version": 0,
+    "level": "M",
+    "expected": {
+      "version": 0,
+      "level": "M",
+      "mask": 14,
+      "hash": "9d2bc8f82fb38f9984c4eee3f0660839f852aa6137f3fbc0bb4c4a55ccc6b8d7"
+    }
+  },
+  {
+    "text": "http://a.cn",
+    "version": 0,
+    "level": "Q",
+    "expected": {
+      "version": 0,
+      "level": "Q",
+      "mask": 14,
+      "hash": "975427448616ca69dcd5c73a8efed85f2bba5d584c465bf30648975725e15e9d"
+    }
+  },
+  {
+    "text": "http://a.cn",
+    "version": 0,
+    "level": "H",
+    "expected": {
+      "version": 0,
+      "level": "H",
+      "mask": 18,
+      "hash": "0345bddd9062f37fec3e9f7a813ae218b5a1fb3db908db57d5665386c3894917"
+    }
+  },
+  {
+    "text": "http://a.cn",
+    "version": 1,
+    "level": "auto",
+    "expected": {
+      "version": 1,
+      "level": "H",
+      "mask": 23,
+      "hash": "21bb3339d60382ef37164020fe9e9669fb763562496e09f7d74aaabd3b852d60"
+    }
+  },
+  {
+    "text": "http://a.cn",
+    "version": 1,
+    "level": "L",
+    "expected": {
+      "version": 1,
+      "level": "L",
+      "mask": 23,
+      "hash": "213a0cbe592f69f38f67e8c9d929b29c02456580367a93cc82772ffd1d4b8f06"
+    }
+  },
+  {
+    "text": "http://a.cn",
+    "version": 1,
+    "level": "M",
+    "expected": {
+      "version": 1,
+      "level": "M",
+      "mask": 23,
+      "hash": "5dafaf0943806d9d720004795c03ab8c4fc35e9f71295278cfdecbda2515d861"
+    }
+  },
+  {
+    "text": "http://a.cn",
+    "version": 1,
+    "level": "Q",
+    "expected": {
+      "version": 1,
+      "level": "Q",
+      "mask": 31,
+      "hash": "bfbf6dae8cf45a3f1b5447d2e2951dd51935f76b3fc497c524a46637b392c38f"
+    }
+  },
+  {
+    "text": "http://a.cn",
+    "version": 1,
+    "level": "H",
+    "expected": {
+      "version": 1,
+      "level": "H",
+      "mask": 23,
+      "hash": "21bb3339d60382ef37164020fe9e9669fb763562496e09f7d74aaabd3b852d60"
+    }
+  },
+  {
+    "text": "http://a.cn",
+    "version": 2,
+    "level": "auto",
+    "expected": {
+      "version": 2,
+      "level": "H",
+      "mask": 18,
+      "hash": "22412f867756940293d1021724cc762fe337369e914783482a45c80024959c8d"
+    }
+  },
+  {
+    "text": "http://a.cn",
+    "version": 2,
+    "level": "L",
+    "expected": {
+      "version": 2,
+      "level": "L",
+      "mask": 25,
+      "hash": "86fc7b98c9ffef09ecbbffee74ca3cbe5ba5da1af2418b1c1d3d4312ebdecbef"
+    }
+  },
+  {
+    "text": "http://a.cn",
+    "version": 2,
+    "level": "M",
+    "expected": {
+      "version": 2,
+      "level": "M",
+      "mask": 20,
+      "hash": "fc27e4f23d15115913fb021ef46a98a6ca7913cc3c56151965a83bdad93f1bd0"
+    }
+  },
+  {
+    "text": "http://a.cn",
+    "version": 2,
+    "level": "Q",
+    "expected": {
+      "version": 2,
+      "level": "Q",
+      "mask": 6,
+      "hash": "8e6a60fe64b617f6e36822ffef28ba462181641bc0459c1b36978a61d8663ad0"
+    }
+  },
+  {
+    "text": "http://a.cn",
+    "version": 2,
+    "level": "H",
+    "expected": {
+      "version": 2,
+      "level": "H",
+      "mask": 18,
+      "hash": "22412f867756940293d1021724cc762fe337369e914783482a45c80024959c8d"
+    }
+  },
+  {
+    "text": "https://a.cn/你好",
+    "version": "auto",
+    "level": "auto",
+    "expected": {
+      "version": 0,
+      "level": "M",
+      "mask": 1,
+      "hash": "1064992efb7bf5eff34b13191dac31f547a9806feb0263998450c36b2ca78359"
+    }
+  },
+  {
+    "text": "https://a.cn/你好",
+    "version": "auto",
+    "level": "L",
+    "expected": {
+      "version": 0,
+      "level": "L",
+      "mask": 22,
+      "hash": "9692356ada8715000a084a24103031b73861a32c1b9738f8bbdfb55c8847c102"
+    }
+  },
+  {
+    "text": "https://a.cn/你好",
+    "version": "auto",
+    "level": "M",
+    "expected": {
+      "version": 0,
+      "level": "M",
+      "mask": 1,
+      "hash": "1064992efb7bf5eff34b13191dac31f547a9806feb0263998450c36b2ca78359"
+    }
+  },
+  {
+    "text": "https://a.cn/你好",
+    "version": "auto",
+    "level": "Q",
+    "expected": {
+      "version": 1,
+      "level": "Q",
+      "mask": 11,
+      "hash": "87509466771f86333efafd62f91f4e0f5f9075af19863c512d5815a5a404d840"
+    }
+  },
+  {
+    "text": "https://a.cn/你好",
+    "version": "auto",
+    "level": "H",
+    "expected": {
+      "version": 2,
+      "level": "H",
+      "mask": 28,
+      "hash": "1f4742fb934311823fa82e8c416a5f986251d38c85969d3483e355803ae3e070"
+    }
+  },
+  {
+    "text": "https://a.cn/你好",
+    "version": 0,
+    "level": "auto",
+    "expected": {
+      "version": 0,
+      "level": "M",
+      "mask": 1,
+      "hash": "1064992efb7bf5eff34b13191dac31f547a9806feb0263998450c36b2ca78359"
+    }
+  },
+  {
+    "text": "https://a.cn/你好",
+    "version": 0,
+    "level": "L",
+    "expected": {
+      "version": 0,
+      "level": "L",
+      "mask": 22,
+      "hash": "9692356ada8715000a084a24103031b73861a32c1b9738f8bbdfb55c8847c102"
+    }
+  },
+  {
+    "text": "https://a.cn/你好",
+    "version": 0,
+    "level": "M",
+    "expected": {
+      "version": 0,
+      "level": "M",
+      "mask": 1,
+      "hash": "1064992efb7bf5eff34b13191dac31f547a9806feb0263998450c36b2ca78359"
+    }
+  },
+  {
+    "text": "https://a.cn/你好",
+    "version": 0,
+    "level": "Q",
+    "expected": {
+      "reject": true
+    }
+  },
+  {
+    "text": "https://a.cn/你好",
+    "version": 0,
+    "level": "H",
+    "expected": {
+      "reject": true
+    }
+  },
+  {
+    "text": "https://a.cn/你好",
+    "version": 1,
+    "level": "auto",
+    "expected": {
+      "version": 1,
+      "level": "Q",
+      "mask": 11,
+      "hash": "87509466771f86333efafd62f91f4e0f5f9075af19863c512d5815a5a404d840"
+    }
+  },
+  {
+    "text": "https://a.cn/你好",
+    "version": 1,
+    "level": "L",
+    "expected": {
+      "version": 1,
+      "level": "L",
+      "mask": 30,
+      "hash": "5163111b2e0e14c1a12ef7ca104f3aabe2b1e86c7d403a5c2c180d331ee41c33"
+    }
+  },
+  {
+    "text": "https://a.cn/你好",
+    "version": 1,
+    "level": "M",
+    "expected": {
+      "version": 1,
+      "level": "M",
+      "mask": 12,
+      "hash": "442747a7cf9b9088bdd2308a7186e89dd164902ce8adbf57822cefe4346c494d"
+    }
+  },
+  {
+    "text": "https://a.cn/你好",
+    "version": 1,
+    "level": "Q",
+    "expected": {
+      "version": 1,
+      "level": "Q",
+      "mask": 11,
+      "hash": "87509466771f86333efafd62f91f4e0f5f9075af19863c512d5815a5a404d840"
+    }
+  },
+  {
+    "text": "https://a.cn/你好",
+    "version": 1,
+    "level": "H",
+    "expected": {
+      "reject": true
+    }
+  },
+  {
+    "text": "https://a.cn/你好",
+    "version": 2,
+    "level": "auto",
+    "expected": {
+      "version": 2,
+      "level": "H",
+      "mask": 28,
+      "hash": "1f4742fb934311823fa82e8c416a5f986251d38c85969d3483e355803ae3e070"
+    }
+  },
+  {
+    "text": "https://a.cn/你好",
+    "version": 2,
+    "level": "L",
+    "expected": {
+      "version": 2,
+      "level": "L",
+      "mask": 22,
+      "hash": "f9b6b64df10fe50e013ce1c092f2ba59d12c9e5a68237d0398e055df8fc0e65b"
+    }
+  },
+  {
+    "text": "https://a.cn/你好",
+    "version": 2,
+    "level": "M",
+    "expected": {
+      "version": 2,
+      "level": "M",
+      "mask": 1,
+      "hash": "f0199f16dcf9a36b6ac5450bc0014465a5fe952a4d6e1f5e5b8319adedf5dba8"
+    }
+  },
+  {
+    "text": "https://a.cn/你好",
+    "version": 2,
+    "level": "Q",
+    "expected": {
+      "version": 2,
+      "level": "Q",
+      "mask": 20,
+      "hash": "f09399704327f69cd527f2eaa70963ecc9172d0a052e904a887acbefb4bf2f39"
+    }
+  },
+  {
+    "text": "https://a.cn/你好",
+    "version": 2,
+    "level": "H",
+    "expected": {
+      "version": 2,
+      "level": "H",
+      "mask": 28,
+      "hash": "1f4742fb934311823fa82e8c416a5f986251d38c85969d3483e355803ae3e070"
+    }
+  },
+  {
+    "text": "https://a.cn/?a=1&b=Hi",
+    "version": "auto",
+    "level": "auto",
+    "expected": {
+      "version": 0,
+      "level": "Q",
+      "mask": 14,
+      "hash": "93e399b66b0ea181c6586aa186b9fcf243ba40db0ef62a722fe45c3b3c52502c"
+    }
+  },
+  {
+    "text": "https://a.cn/?a=1&b=Hi",
+    "version": "auto",
+    "level": "L",
+    "expected": {
+      "version": 0,
+      "level": "L",
+      "mask": 27,
+      "hash": "b5ed72ed02f5730979111ac3a016c2bb62b3ab2603e7b4b49b3a482a64008774"
+    }
+  },
+  {
+    "text": "https://a.cn/?a=1&b=Hi",
+    "version": "auto",
+    "level": "M",
+    "expected": {
+      "version": 0,
+      "level": "M",
+      "mask": 14,
+      "hash": "057c0dd1a2d0ca078d472220f98565494c0a02a78d265c407fd5b5b3aedb099f"
+    }
+  },
+  {
+    "text": "https://a.cn/?a=1&b=Hi",
+    "version": "auto",
+    "level": "Q",
+    "expected": {
+      "version": 0,
+      "level": "Q",
+      "mask": 14,
+      "hash": "93e399b66b0ea181c6586aa186b9fcf243ba40db0ef62a722fe45c3b3c52502c"
+    }
+  },
+  {
+    "text": "https://a.cn/?a=1&b=Hi",
+    "version": "auto",
+    "level": "H",
+    "expected": {
+      "version": 1,
+      "level": "H",
+      "mask": 11,
+      "hash": "086aa02d60ba4c7c75160c09d00888346c4088cbefb4aa5ca180b7ba8699d40c"
+    }
+  },
+  {
+    "text": "https://a.cn/?a=1&b=Hi",
+    "version": 0,
+    "level": "auto",
+    "expected": {
+      "version": 0,
+      "level": "Q",
+      "mask": 14,
+      "hash": "93e399b66b0ea181c6586aa186b9fcf243ba40db0ef62a722fe45c3b3c52502c"
+    }
+  },
+  {
+    "text": "https://a.cn/?a=1&b=Hi",
+    "version": 0,
+    "level": "L",
+    "expected": {
+      "version": 0,
+      "level": "L",
+      "mask": 27,
+      "hash": "b5ed72ed02f5730979111ac3a016c2bb62b3ab2603e7b4b49b3a482a64008774"
+    }
+  },
+  {
+    "text": "https://a.cn/?a=1&b=Hi",
+    "version": 0,
+    "level": "M",
+    "expected": {
+      "version": 0,
+      "level": "M",
+      "mask": 14,
+      "hash": "057c0dd1a2d0ca078d472220f98565494c0a02a78d265c407fd5b5b3aedb099f"
+    }
+  },
+  {
+    "text": "https://a.cn/?a=1&b=Hi",
+    "version": 0,
+    "level": "Q",
+    "expected": {
+      "version": 0,
+      "level": "Q",
+      "mask": 14,
+      "hash": "93e399b66b0ea181c6586aa186b9fcf243ba40db0ef62a722fe45c3b3c52502c"
+    }
+  },
+  {
+    "text": "https://a.cn/?a=1&b=Hi",
+    "version": 0,
+    "level": "H",
+    "expected": {
+      "reject": true
+    }
+  },
+  {
+    "text": "https://a.cn/?a=1&b=Hi",
+    "version": 1,
+    "level": "auto",
+    "expected": {
+      "version": 1,
+      "level": "H",
+      "mask": 11,
+      "hash": "086aa02d60ba4c7c75160c09d00888346c4088cbefb4aa5ca180b7ba8699d40c"
+    }
+  },
+  {
+    "text": "https://a.cn/?a=1&b=Hi",
+    "version": 1,
+    "level": "L",
+    "expected": {
+      "version": 1,
+      "level": "L",
+      "mask": 28,
+      "hash": "267c49f6e38769a8a25a6e139d9a680487298b3b7eb483ba5b154ec9d9a8c9f0"
+    }
+  },
+  {
+    "text": "https://a.cn/?a=1&b=Hi",
+    "version": 1,
+    "level": "M",
+    "expected": {
+      "version": 1,
+      "level": "M",
+      "mask": 11,
+      "hash": "cbd18f483a0a6c44132f27e251b9b85e7f8698163c134368e294c90e194f21b3"
+    }
+  },
+  {
+    "text": "https://a.cn/?a=1&b=Hi",
+    "version": 1,
+    "level": "Q",
+    "expected": {
+      "version": 1,
+      "level": "Q",
+      "mask": 3,
+      "hash": "5a986e40ee760718bfe27a7d35f964b08293976d7335f0b88f4d3b79f91fa686"
+    }
+  },
+  {
+    "text": "https://a.cn/?a=1&b=Hi",
+    "version": 1,
+    "level": "H",
+    "expected": {
+      "version": 1,
+      "level": "H",
+      "mask": 11,
+      "hash": "086aa02d60ba4c7c75160c09d00888346c4088cbefb4aa5ca180b7ba8699d40c"
+    }
+  },
+  {
+    "text": "https://a.cn/?a=1&b=Hi",
+    "version": 2,
+    "level": "auto",
+    "expected": {
+      "version": 2,
+      "level": "H",
+      "mask": 19,
+      "hash": "e96f101dd366073efc1cf9bc1dd75ec49d34ff72db0bf405f2979acb35413166"
+    }
+  },
+  {
+    "text": "https://a.cn/?a=1&b=Hi",
+    "version": 2,
+    "level": "L",
+    "expected": {
+      "version": 2,
+      "level": "L",
+      "mask": 15,
+      "hash": "d8d8e7be130868fcd45ffef8faec5e296c47862d271ef6034b0779b44aee754d"
+    }
+  },
+  {
+    "text": "https://a.cn/?a=1&b=Hi",
+    "version": 2,
+    "level": "M",
+    "expected": {
+      "version": 2,
+      "level": "M",
+      "mask": 11,
+      "hash": "583a72ab1247b195aee1436c948637187c6a5464e5f389bd2f32a518eca004ff"
+    }
+  },
+  {
+    "text": "https://a.cn/?a=1&b=Hi",
+    "version": 2,
+    "level": "Q",
+    "expected": {
+      "version": 2,
+      "level": "Q",
+      "mask": 6,
+      "hash": "6ff57114270d009a5900734c19f8db386b790b3e45b3d0fe83ef9b462b920c0b"
+    }
+  },
+  {
+    "text": "https://a.cn/?a=1&b=Hi",
+    "version": 2,
+    "level": "H",
+    "expected": {
+      "version": 2,
+      "level": "H",
+      "mask": 19,
+      "hash": "e96f101dd366073efc1cf9bc1dd75ec49d34ff72db0bf405f2979acb35413166"
+    }
+  },
+  {
+    "text": "https://example.com/a%20b",
+    "version": "auto",
+    "level": "auto",
+    "expected": {
+      "version": 0,
+      "level": "L",
+      "mask": 30,
+      "hash": "c97faf31ff0c941a883cf9462e25c8ce2ed6d13c492990a656c87218c25a43b7"
+    }
+  },
+  {
+    "text": "https://example.com/a%20b",
+    "version": "auto",
+    "level": "L",
+    "expected": {
+      "version": 0,
+      "level": "L",
+      "mask": 30,
+      "hash": "c97faf31ff0c941a883cf9462e25c8ce2ed6d13c492990a656c87218c25a43b7"
+    }
+  },
+  {
+    "text": "https://example.com/a%20b",
+    "version": "auto",
+    "level": "M",
+    "expected": {
+      "version": 1,
+      "level": "M",
+      "mask": 27,
+      "hash": "8f03287e432f64cbdc9ca06f8035ab7d5c8bd962240221ee9b840bf61ad47d24"
+    }
+  },
+  {
+    "text": "https://example.com/a%20b",
+    "version": "auto",
+    "level": "Q",
+    "expected": {
+      "version": 2,
+      "level": "Q",
+      "mask": 27,
+      "hash": "ec9dcdbf5ad23de4308dea106d8f70cab8d5aaa7b91c584be08956e40f67e39d"
+    }
+  },
+  {
+    "text": "https://example.com/a%20b",
+    "version": "auto",
+    "level": "H",
+    "expected": {
+      "reject": true
+    }
+  },
+  {
+    "text": "https://example.com/a%20b",
+    "version": 0,
+    "level": "auto",
+    "expected": {
+      "version": 0,
+      "level": "L",
+      "mask": 30,
+      "hash": "c97faf31ff0c941a883cf9462e25c8ce2ed6d13c492990a656c87218c25a43b7"
+    }
+  },
+  {
+    "text": "https://example.com/a%20b",
+    "version": 0,
+    "level": "L",
+    "expected": {
+      "version": 0,
+      "level": "L",
+      "mask": 30,
+      "hash": "c97faf31ff0c941a883cf9462e25c8ce2ed6d13c492990a656c87218c25a43b7"
+    }
+  },
+  {
+    "text": "https://example.com/a%20b",
+    "version": 0,
+    "level": "M",
+    "expected": {
+      "reject": true
+    }
+  },
+  {
+    "text": "https://example.com/a%20b",
+    "version": 0,
+    "level": "Q",
+    "expected": {
+      "reject": true
+    }
+  },
+  {
+    "text": "https://example.com/a%20b",
+    "version": 0,
+    "level": "H",
+    "expected": {
+      "reject": true
+    }
+  },
+  {
+    "text": "https://example.com/a%20b",
+    "version": 1,
+    "level": "auto",
+    "expected": {
+      "version": 1,
+      "level": "M",
+      "mask": 27,
+      "hash": "8f03287e432f64cbdc9ca06f8035ab7d5c8bd962240221ee9b840bf61ad47d24"
+    }
+  },
+  {
+    "text": "https://example.com/a%20b",
+    "version": 1,
+    "level": "L",
+    "expected": {
+      "version": 1,
+      "level": "L",
+      "mask": 30,
+      "hash": "64e89d0e19e9109759ca6f62f9902cd8ef146ad0fce559c226390f802bed0e5b"
+    }
+  },
+  {
+    "text": "https://example.com/a%20b",
+    "version": 1,
+    "level": "M",
+    "expected": {
+      "version": 1,
+      "level": "M",
+      "mask": 27,
+      "hash": "8f03287e432f64cbdc9ca06f8035ab7d5c8bd962240221ee9b840bf61ad47d24"
+    }
+  },
+  {
+    "text": "https://example.com/a%20b",
+    "version": 1,
+    "level": "Q",
+    "expected": {
+      "reject": true
+    }
+  },
+  {
+    "text": "https://example.com/a%20b",
+    "version": 1,
+    "level": "H",
+    "expected": {
+      "reject": true
+    }
+  },
+  {
+    "text": "https://example.com/a%20b",
+    "version": 2,
+    "level": "auto",
+    "expected": {
+      "version": 2,
+      "level": "Q",
+      "mask": 27,
+      "hash": "ec9dcdbf5ad23de4308dea106d8f70cab8d5aaa7b91c584be08956e40f67e39d"
+    }
+  },
+  {
+    "text": "https://example.com/a%20b",
+    "version": 2,
+    "level": "L",
+    "expected": {
+      "version": 2,
+      "level": "L",
+      "mask": 4,
+      "hash": "ab138f146acbd60a5182154e29227584960f8ee95477480ef1164cf81c26d881"
+    }
+  },
+  {
+    "text": "https://example.com/a%20b",
+    "version": 2,
+    "level": "M",
+    "expected": {
+      "version": 2,
+      "level": "M",
+      "mask": 11,
+      "hash": "d1defeb8e975abe4a3c836088c5ce1cb4418691bbefc5c8ffe66d8a9578a851b"
+    }
+  },
+  {
+    "text": "https://example.com/a%20b",
+    "version": 2,
+    "level": "Q",
+    "expected": {
+      "version": 2,
+      "level": "Q",
+      "mask": 27,
+      "hash": "ec9dcdbf5ad23de4308dea106d8f70cab8d5aaa7b91c584be08956e40f67e39d"
+    }
+  },
+  {
+    "text": "https://example.com/a%20b",
+    "version": 2,
+    "level": "H",
+    "expected": {
+      "reject": true
+    }
+  }
+]
