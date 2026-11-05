@@ -53,8 +53,24 @@ async function shorten(env, text, fetchImpl) {
   } catch {
     throw new HttpError(502, '转链服务连接失败，请稍后重试。');
   }
-  if (r.status === 429) throw new HttpError(429, '转链服务请求过于频繁，请稍后重试。');
-  if (!r.ok) throw new HttpError(502, '转链服务暂不可用，请联系管理员。');
+  if (!r.ok) {
+    const failures = {
+      401: ['SHORTENER_AUTH', '转链认证失败（HTTP 401），请管理员检查 ACEDATA_TOKEN。'],
+      402: ['SHORTENER_QUOTA', '转链账户余额或额度不足（HTTP 402），请管理员检查账户。'],
+      403: [
+        'SHORTENER_FORBIDDEN',
+        '转链服务拒绝访问（HTTP 403），请管理员检查接口权限或服务商访问限制。',
+      ],
+      429: ['SHORTENER_RATE_LIMIT', '转链服务请求过于频繁（HTTP 429），请稍后重试。'],
+    };
+    const [code, message] = failures[r.status] || [
+      'SHORTENER_HTTP',
+      `转链服务返回异常（HTTP ${r.status}），请联系管理员。`,
+    ];
+    console.warn('shortener_rejected', { status: r.status, code });
+    // Upstream authentication failures are not application-session failures.
+    throw new HttpError(r.status === 429 ? 429 : 502, message, code);
+  }
   let result;
   try {
     result = await r.json();
@@ -63,9 +79,9 @@ async function shorten(env, text, fetchImpl) {
   }
   if (
     result?.success !== true ||
-    !/^https:\/\/surl\.id\/r\/[A-Za-z0-9_-]{1,64}$/.test(result?.data?.url || '')
+    !/^https:\/\/surl\.id\/(?:r\/)?[A-Za-z0-9_-]{1,64}$/.test(result?.data?.url || '')
   )
-    throw new HttpError(502, '转链失败，请稍后重试。');
+    throw new HttpError(502, '转链服务返回的短链无效，请联系管理员。', 'SHORTENER_BAD_RESPONSE');
   return result.data.url;
 }
 export const historyItem = (r) => ({

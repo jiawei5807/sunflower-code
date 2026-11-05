@@ -8,7 +8,7 @@ const root = fileURLToPath(new URL('../../', import.meta.url));
 const password = 'Example-Password-123!';
 async function setup(t) {
   let calls = 0,
-    fail = false;
+    upstream = () => Response.json({ success: true, data: { url: 'https://surl.id/r/Abc123' } });
   const mf = new Miniflare({
     modules: true,
     scriptPath: path.join(root, 'dist/_worker.js'),
@@ -32,9 +32,7 @@ async function setup(t) {
       calls++;
       assert.equal(request.headers.get('authorization'), 'Bearer private-test-token');
       assert.equal(request.url, 'https://api.acedata.cloud/shorturl');
-      return fail
-        ? new Response('no', { status: 500 })
-        : Response.json({ success: true, data: { url: 'https://surl.id/r/Abc123' } });
+      return upstream();
     },
   });
   t.after(() => mf.dispose());
@@ -71,7 +69,8 @@ async function setup(t) {
     get calls() {
       return calls;
     },
-    fail: () => (fail = true),
+    fail: () => (upstream = () => new Response('no', { status: 500 })),
+    upstream: (response) => (upstream = response),
   };
 }
 test('invite account lifecycle, access controls, R2 history and accurate counters', async (t) => {
@@ -429,4 +428,64 @@ test('history pagination and date statistics use successful completion times', a
   assert.equal(stats.items[0].generated, 21);
   assert.equal(stats.items[0].today, 20);
   assert.equal(stats.items[0].period, 1);
+});
+
+test('shortener accepts current and legacy URLs, distinguishes upstream failures without leaking secrets', async (t) => {
+  const s = await setup(t);
+  const cookie = await s.login('admin');
+  const body = { content: 'https://example.com/?q=' + 'a'.repeat(200), size: 512 };
+  let sequence = 0;
+  const generate = () =>
+    s.call('/api/generate', {
+      method: 'POST',
+      cookie,
+      body,
+      key: 'shortener-test-' + String(++sequence).padStart(6, '0'),
+    });
+  for (const url of ['https://surl.id/Abc123', 'https://surl.id/r/Abc123']) {
+    s.upstream(() => Response.json({ success: true, data: { url } }));
+    const r = await generate();
+    assert.equal(r.status, 201, await r.clone().text());
+    assert.ok((await r.json()).svg.startsWith('<svg'));
+  }
+  const statuses = {
+    401: 'SHORTENER_AUTH',
+    402: 'SHORTENER_QUOTA',
+    403: 'SHORTENER_FORBIDDEN',
+    429: 'SHORTENER_RATE_LIMIT',
+    500: 'SHORTENER_HTTP',
+    302: 'SHORTENER_HTTP',
+  };
+  for (const [upstreamStatus, code] of Object.entries(statuses)) {
+    const calls = s.calls;
+    s.upstream(
+      () =>
+        new Response('sensitive: private-test-token', {
+          status: Number(upstreamStatus),
+          headers: { location: 'https://other.test' },
+        }),
+    );
+    const r = await generate();
+    assert.equal(r.status, upstreamStatus === '429' ? 429 : 502);
+    const data = await r.json();
+    assert.equal(data.code, code);
+    assert.ok(data.error.includes('HTTP ' + upstreamStatus));
+    assert.ok(!JSON.stringify(data).includes('private-test-token'));
+    assert.equal(s.calls, calls + 1, 'must not follow redirects or retry paid requests');
+    assert.equal((await s.call('/api/auth/me', { cookie })).status, 200);
+  }
+  for (const url of [
+    'https://surl.id.evil.test/Abc123',
+    'http://surl.id/Abc123',
+    'https://surl.id/Abc123?secret=x',
+    'https://surl.id/a/b',
+    'https://surl.id/Abc123#fragment',
+    'https://evil.test/Abc123',
+  ]) {
+    s.upstream(() => Response.json({ success: true, data: { url } }));
+    const r = await generate();
+    assert.equal(r.status, 502);
+    assert.equal((await r.json()).code, 'SHORTENER_BAD_RESPONSE');
+  }
+  assert.equal((await (await s.call('/api/history', { cookie })).json()).total, 2);
 });

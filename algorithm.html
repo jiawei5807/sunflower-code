@@ -370,13 +370,13 @@ const svg = SunflowerCode.renderSvg(result, { size: 1024, avatar: &#x27;&#x27; }
 <p>编码核心打包进 <code>_worker.js</code>，不作为静态脚本下发。未登录不能通过 API 生成，包括容量内的短网址。二维码图片的识别仍在浏览器完成。</p>
 <h3>14.2 外部转链</h3>
 <p><code>cloudflare/lib/generation.mjs</code> 向固定地址 <code>https://api.acedata.cloud/shorturl</code> 发起 POST，JSON 为 <code>{ &quot;content&quot;: &quot;原网址&quot; }</code>，从运行时机密 <code>ACEDATA_TOKEN</code> 读取 Token 并加上 Bearer 前缀。浏览器无需填写密钥，也不会接收到密钥。</p>
-<p>上游超时 20 秒；使用 workerd 支持的 <code>redirect: &#x27;manual&#x27;</code>，拒绝所有非成功 HTTP 状态，包括重定向。网络错误、非 JSON、<code>success !== true</code> 均不产生成功记录；不向页面透传服务商的原始报错。HTTP 429 显示请求频繁。</p>
+<p>上游超时 20 秒；使用 workerd 支持的 <code>redirect: &#x27;manual&#x27;</code>，拒绝所有非成功 HTTP 状态，包括重定向。网络错误、非 JSON、<code>success !== true</code> 均不产生成功记录；不向页面透传服务商的原始报错。HTTP 401 提示检查服务端 Token，402 提示检查余额或额度，403 提示检查接口权限或访问限制，429 提示请求频繁；其他状态展示上游 HTTP 状态码。除限流返回 429 外，上游错误统一映射为本站 502，避免误判为用户登录失效。服务端日志仅记录状态码与固定错误代码。</p>
 <p>接受的成功响应形式：</p>
 <pre><code>
 {&quot;success&quot;:true,&quot;data&quot;:{&quot;url&quot;:&quot;https://surl.id/r/Abc123&quot;}}
 
 </code></pre>
-<p>短链必须符合 <code>https://surl.id/r/</code> 加 1～64 个字母、数字、下划线或连字符；拒绝其他域名、查询和片段。按原射线与纠错重新编码，仍装不下则提示改为自动，不递归缩短。页面保留原网址，图片编码短链，跳转由第三方承接。</p>
+<p>短链必须符合 <code>https://surl.id/</code> 或 <code>https://surl.id/r/</code> 加 1～64 个字母、数字、下划线或连字符；拒绝其他域名、查询和片段。按原射线与纠错重新编码，仍装不下则提示改为自动，不递归缩短。页面保留原网址，图片编码短链，跳转由第三方承接。</p>
 <h3>14.3 幂等与保存顺序</h3>
 <ol>
 <li>校验参数，计算包含网址、外观、编码设置、来源的 SHA-256 摘要。</li>

@@ -409,7 +409,7 @@ const svg = SunflowerCode.renderSvg(result, { size: 1024, avatar: '' });
 
 `cloudflare/lib/generation.mjs` 向固定地址 `https://api.acedata.cloud/shorturl` 发起 POST，JSON 为 `{ "content": "原网址" }`，从运行时机密 `ACEDATA_TOKEN` 读取 Token 并加上 Bearer 前缀。浏览器无需填写密钥，也不会接收到密钥。
 
-上游超时 20 秒；使用 workerd 支持的 `redirect: 'manual'`，拒绝所有非成功 HTTP 状态，包括重定向。网络错误、非 JSON、`success !== true` 均不产生成功记录；不向页面透传服务商的原始报错。HTTP 429 显示请求频繁。
+上游超时 20 秒；使用 workerd 支持的 `redirect: 'manual'`，拒绝所有非成功 HTTP 状态，包括重定向。网络错误、非 JSON、`success !== true` 均不产生成功记录；不向页面透传服务商的原始报错。HTTP 401 提示检查服务端 Token，402 提示检查余额或额度，403 提示检查接口权限或访问限制，429 提示请求频繁；其他状态展示上游 HTTP 状态码。除限流返回 429 外，上游错误统一映射为本站 502，避免误判为用户登录失效。服务端日志仅记录状态码与固定错误代码。
 
 接受的成功响应形式：
 
@@ -417,7 +417,7 @@ const svg = SunflowerCode.renderSvg(result, { size: 1024, avatar: '' });
 {"success":true,"data":{"url":"https://surl.id/r/Abc123"}}
 ```
 
-短链必须符合 `https://surl.id/r/` 加 1～64 个字母、数字、下划线或连字符；拒绝其他域名、查询和片段。按原射线与纠错重新编码，仍装不下则提示改为自动，不递归缩短。页面保留原网址，图片编码短链，跳转由第三方承接。
+短链必须符合 `https://surl.id/` 或 `https://surl.id/r/` 加 1～64 个字母、数字、下划线或连字符；拒绝其他域名、查询和片段。按原射线与纠错重新编码，仍装不下则提示改为自动，不递归缩短。页面保留原网址，图片编码短链，跳转由第三方承接。
 
 ### 14.3 幂等与保存顺序
 

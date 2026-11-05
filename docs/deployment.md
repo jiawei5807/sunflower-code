@@ -39,3 +39,15 @@ D1 与 R2 不支持跨资源事务。明确失败会标记 failed 并尽力删�
 npm run dev 自动构建并启动本地 workerd；D1 和 R2 持久化在 .wrangler/state，自动应用尚未执行的迁移。本地 .env.local 不进 Git。测试脚本使用临时目录和模拟 Ace Data，不调用真实服务。
 
 本分支尚未配置任何线上 D1 或 R2，没有修改 main 或生产部署。授权状态见 NOTICE。
+
+## 转链失败排查
+
+新 Pages 项目的机密不会自动继承其他项目。确认实际运行环境的 `ACEDATA_TOKEN` 为 Secret，值只填 Token 本体，不带 `Bearer `、引号或 curl 命令，并在修改后重新部署。
+
+- HTTP 401：服务商认证失败，核对 Token 是否正确、有效。
+- HTTP 402：检查 Ace Data 余额或额度。
+- HTTP 403：服务商拒绝访问，检查接口授权和来源访问限制；不能仅凭 403 判断为密码或余额问题。
+- HTTP 429：触发服务商限流，稍后重试。
+- 其他 HTTP 状态：在 Pages Functions 日志查找 `shortener_rejected` 的 status/code；不要在日志中添加密钥或服务商原始响应。
+
+提示“转链服务未配置”表示运行时机密为空；提示“连接失败”表示请求超时或网络异常，与收到非成功 HTTP 响应不同。短链同时兼容服务商的 `/编号` 与 `/r/编号` 路径，仍只接受固定 HTTPS 域名。
