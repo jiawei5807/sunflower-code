@@ -146,6 +146,67 @@ test('invite account lifecycle, access controls, R2 history and accurate counter
   assert.equal(image.headers.get('cache-control'), 'private, no-store');
   const history = await (await call('/api/history', { cookie: account })).json();
   assert.equal(history.total, 1);
+  const adminHistoryPath = `/api/admin/users/${first.id}/history`;
+  assert.equal((await call(adminHistoryPath)).status, 401);
+  assert.equal((await call(adminHistoryPath, { cookie: account })).status, 403);
+  assert.equal((await call('/admin/history?user=' + first.id, { cookie: account })).status, 403);
+  assert.equal((await call('/admin/history?user=' + first.id)).status, 302);
+  assert.equal(
+    await (await call('/admin/history?user=' + first.id, { cookie: admin })).text(),
+    'page:/history',
+  );
+  const adminHistory = await (await call(adminHistoryPath, { cookie: admin })).json();
+  assert.equal(adminHistory.user.username, first.username);
+  assert.equal(adminHistory.total, 1);
+  assert.equal(adminHistory.items[0].originalUrl, body.content);
+  assert.equal(adminHistory.items[0].id, item.id);
+  assert.ok(!('password_hash' in adminHistory.user));
+  const adminImage = adminHistory.items[0].imageUrl;
+  assert.equal(adminImage, `${adminHistoryPath}/${item.id}/image`);
+  assert.equal((await call(adminImage)).status, 401);
+  assert.equal((await call(adminImage, { cookie: account })).status, 403);
+  const administratorImage = await call(adminImage, { cookie: admin });
+  assert.equal(await administratorImage.text(), item.svg);
+  assert.equal(administratorImage.headers.get('cache-control'), 'private, no-store');
+  assert.match(administratorImage.headers.get('content-security-policy'), /sandbox/);
+  const downloaded = await call(adminImage + '?download=1', { cookie: admin });
+  assert.match(downloaded.headers.get('content-disposition'), /^attachment;/);
+  const otherId = (await db.prepare("SELECT id FROM users WHERE username='charlie'").first()).id;
+  assert.equal(
+    (await (await call(`/api/admin/users/${otherId}/history`, { cookie: admin })).json()).total,
+    0,
+  );
+  assert.equal(
+    (await call(`/api/admin/users/${otherId}/history/${item.id}/image`, { cookie: admin })).status,
+    404,
+  );
+  assert.equal(
+    (await call(`/api/admin/users/${crypto.randomUUID()}/history`, { cookie: admin })).status,
+    404,
+  );
+  assert.equal((await call(adminImage, { method: 'POST', cookie: admin, body: {} })).status, 404);
+  assert.equal(
+    (
+      await call(`/api/admin/users/${first.id}/history/${item.id}/appearance`, {
+        method: 'POST',
+        cookie: admin,
+        body: { size: 512 },
+      })
+    ).status,
+    404,
+  );
+  assert.equal(
+    (
+      await call('/api/history/' + item.id + '/appearance', {
+        method: 'POST',
+        cookie: admin,
+        body: { size: 512 },
+      })
+    ).status,
+    404,
+  );
+  assert.equal((await call(item.imageUrl, { cookie: admin })).status, 404);
+
   const changed = await call('/api/history/' + item.id + '/appearance', {
     method: 'POST',
     cookie: account,
@@ -202,6 +263,12 @@ test('invite account lifecycle, access controls, R2 history and accurate counter
     body: { status: 'disabled' },
   });
   assert.equal((await call('/api/history', { cookie: account })).status, 401);
+  const disabledHistory = await (await call(adminHistoryPath, { cookie: admin })).json();
+  assert.equal(disabledHistory.user.status, 'disabled');
+  assert.equal(disabledHistory.total, 2);
+  assert.equal((await call(adminImage, { cookie: admin })).status, 200);
+  assert.equal((await call(adminImage, { cookie: account })).status, 401);
+
   assert.equal(
     (
       await call('/api/admin/users/' + users.items.find((u) => u.role === 'admin').id + '/status', {
@@ -218,6 +285,14 @@ test('invite account lifecycle, access controls, R2 history and accurate counter
     body: { current: password, password: 'New-Password-12345!' },
   });
   assert.equal((await call('/api/history', { cookie: other })).status, 401);
+  const savedRow = await db
+    .prepare('SELECT object_key FROM generations WHERE id=?')
+    .bind(item.id)
+    .first();
+  await (await s.mf.getR2Bucket('IMAGES')).delete(savedRow.object_key);
+  const missingImage = await call(adminImage, { cookie: admin });
+  assert.equal(missingImage.status, 404);
+  assert.equal((await missingImage.json()).error, '图片暂不可用。');
   const hashes = await db.prepare('SELECT token_hash FROM invites').all();
   assert.ok(hashes.results.every((r) => !invites.items.some((i) => i.url.endsWith(r.token_hash))));
 });
@@ -407,12 +482,29 @@ test('history pagination and date statistics use successful completion times', a
         .bind(crypto.randomUUID(), id, 'pagination-' + i, day - 1000 + i, i ? day + i : day - 1000),
     ),
   );
+  await db.batch(
+    ['pending', 'failed'].map((state) =>
+      db
+        .prepare(
+          "INSERT INTO generations(id,user_id,request_key,payload_hash,original_url,source,state,created_at) VALUES(?,?,?,'test','https://example.com','link',?,?)",
+        )
+        .bind(crypto.randomUUID(), id, 'excluded-' + state, state, now),
+    ),
+  );
   const first = await (await call('/api/history', { cookie })).json();
   const last = await (await call('/api/history?page=2', { cookie })).json();
   assert.equal(first.items.length, 20);
   assert.equal(last.items.length, 1);
   assert.equal(first.total, 21);
   assert.ok(!first.items.some((item) => item.id === last.items[0].id));
+  const adminPage = await (await call(`/api/admin/users/${id}/history?page=2`, { cookie })).json();
+  assert.equal(adminPage.page, 2);
+  assert.equal(adminPage.total, 21);
+  assert.deepEqual(
+    adminPage.items.map((item) => item.id),
+    last.items.map((item) => item.id),
+  );
+
   const stats = await (
     await call(`/api/admin/users?from=${day - 2000}&to=${day}`, { cookie })
   ).json();

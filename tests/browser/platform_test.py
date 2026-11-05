@@ -70,9 +70,32 @@ with sync_playwright() as p:
  external_hold[0]=False
  user.locator('nav a[href="/history"]').click();expect(user.locator('.history-card')).to_have_count(2)
  admin.locator('#user-filter button').click();row=admin.locator('#users-body tr').filter(has_text='browser_user');expect(row).to_be_visible();assert row.locator('td').nth(3).inner_text()=='2'
+ # Administrator can inspect another user's images without affecting counts.
+ row.get_by_role('link',name='查看 browser_user 的生成记录').click()
+ expect(admin.locator('#history-title')).to_have_text('browser_user 的生成记录')
+ expect(admin.locator('.history-card')).to_have_count(2)
+ expect(admin.locator('.history-card').first).to_contain_text('https://example.com/?q=')
+ admin.wait_for_function("Array.from(document.querySelectorAll('.history-card img')).every(i=>i.complete&&i.naturalWidth>0)")
+ with admin.expect_download() as d:admin.get_by_role('button',name='下载 SVG',exact=True).first.click()
+ assert Path(d.value.path()).read_text().startswith('<svg')
+ with admin.expect_download() as d:admin.get_by_role('button',name='下载 PNG',exact=True).first.click()
+ assert Path(d.value.path()).read_bytes()[:8]==b'\x89PNG\r\n\x1a\n'
+ admin.reload();expect(admin.locator('#history-title')).to_have_text('browser_user 的生成记录');expect(admin.locator('.history-card')).to_have_count(2)
+ Path('test-results').mkdir(exist_ok=True)
+ for width in [320,390,768,1440]:
+  admin.set_viewport_size({'width':width,'height':900});assert admin.evaluate('document.documentElement.scrollWidth<=innerWidth')
+  if width in [390,1440]:admin.screenshot(path=f'test-results/admin-user-history-{width}.png',full_page=True)
+ admin.locator('#history-action').click()
+ expect(admin.locator('#users-body')).to_contain_text('browser_user');assert row.locator('td').nth(3).inner_text()=='2'
+ admin.locator('#users-body tr').filter(has_text='管理员').get_by_role('link',name='查看 admin 的生成记录',exact=True).click()
+ expect(admin.locator('#history-empty')).to_contain_text('该账号还没有生成记录')
+ expect(admin.locator('#history-prev')).to_be_disabled();expect(admin.locator('#history-next')).to_be_disabled()
+ admin.locator('#history-action').click()
  # Reuse invitation is refused; opening it did not consume it before successful register.
  replay=browser.new_page();replay.goto(links[0]);replay.fill('#auth-username','another_user');replay.fill('#auth-password',PASSWORD);replay.fill('#auth-confirm',PASSWORD);replay.click('#auth-submit');expect(replay.locator('#page-message')).to_contain_text('已使用')
  admin.on('dialog',lambda d:d.accept());row.get_by_role('button',name='停用').click();expect(row).to_contain_text('已停用');user.reload();expect(user).to_have_url(BASE+'/login')
+ row.get_by_role('link',name='查看 browser_user 的生成记录').click();expect(admin.locator('#history-description')).to_contain_text('账号已停用');expect(admin.locator('.history-card')).to_have_count(2)
+ admin.locator('#history-action').click()
  row.get_by_role('button',name='启用').click();expect(row).to_contain_text('正常');user.fill('#auth-username','browser_user');user.fill('#auth-password',PASSWORD);user.click('#auth-submit');expect(user.locator('#current-user')).to_have_text('browser_user')
  # Existing images survive logout/new login; basic page layout across desktop and mobile.
  user.locator('nav a[href="/history"]').click();expect(user.locator('.history-card')).to_have_count(2)

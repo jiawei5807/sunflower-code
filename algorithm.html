@@ -401,4 +401,4 @@ const svg = SunflowerCode.renderSvg(result, { size: 1024, avatar: &#x27;&#x27; }
 <p>邀请码由 32 字节密码学随机数生成，链接形如 <code>/register?invite=&lt;64位十六进制字符串&gt;</code>。数据库仅保存 SHA-256 哈希；创建响应显示明文链接一次。打开页面不消耗邀请，注册成功后才失效。</p>
 <p>注册将“从有效且未使用的邀请插入用户”和“标记邀请已使用”放在同一个 D1 batch 事务中。用户表 <code>invite_id</code> 唯一约束防止并发双重使用；账号唯一冲突使事务回滚，不消耗邀请。失效、撤销和过期邀请不能注册。</p>
 <p>密码使用随机盐 PBKDF2-SHA256 派生，100,000 轮（workerd 原生支持上限）。登录会话使用 32 字节随机标识，D1 仅存哈希，7 天有效；HTTPS Cookie 含 <code>Secure</code>、<code>HttpOnly</code>、<code>SameSite=Lax</code>，不放入 localStorage。每次受保护请求检查会话期限和账号状态。</p>
-<p>管理员仅在数据库中没有管理员时由配置初始化；之后以数据库密码为准。改密撤销全部会话，停用用户同样立即撤销会话。管理员 API 再检查角色，图片 API 再检查记录所有者，所有写接口检查同源 Origin。登录按账号和 IP 限流，注册按 IP 限流，状态保存在 D1。</p></main><footer><span>葵花码 · 算法说明</span></footer></body></html>
+<p>管理员仅在数据库中没有管理员时由配置初始化；之后以数据库密码为准。改密撤销全部会话，停用用户同样立即撤销会话。管理员 API 再检查角色，后台图片 API 校验选定账号与记录匹配；个人图片 API 检查记录所有者，所有写接口检查同源 Origin。登录按账号和 IP 限流，注册按 IP 限流，状态保存在 D1。</p></main><footer><span>葵花码 · 算法说明</span></footer></body></html>

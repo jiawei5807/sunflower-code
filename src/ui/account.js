@@ -113,10 +113,33 @@
     }
   });
   if ($('history-list')) {
-    let page = 1;
+    const viewingUser = location.pathname === '/admin/history';
+    const ownerId = new URLSearchParams(location.search).get('user') || '';
+    if (viewingUser) {
+      $('history-title').textContent = '用户生成记录';
+      $('history-title').closest('.page-heading').classList.add('user-history-heading');
+      $('history-description').textContent = '正在加载…';
+      $('history-action').href = '/admin';
+      $('history-action').textContent = '← 返回管理后台';
+      $('history-empty').textContent = '该账号还没有生成记录。';
+      if (user.role !== 'admin') throw Error('没有管理权限。');
+      if (!/^[a-f0-9-]{36}$/.test(ownerId)) throw Error('请从管理后台选择账号。');
+    }
+    const endpoint = viewingUser ? `/api/admin/users/${ownerId}/history` : '/api/history';
+    let page = 1,
+      total = 0,
+      loading = false;
+
     async function load() {
       message('');
-      const result = await api.request('/api/history?page=' + page);
+      const result = await api.request(endpoint + '?page=' + page);
+      if (viewingUser) {
+        $('history-title').textContent = result.user.username + ' 的生成记录';
+        document.title = result.user.username + ' 的生成记录 · 葵花码';
+        $('history-description').textContent =
+          `共 ${result.total} 条${result.user.status === 'disabled' ? ' · 账号已停用' : ''}`;
+      }
+      total = result.total;
       $('history-list').replaceChildren();
       $('history-empty').hidden = result.items.length > 0;
       for (const item of result.items) {
@@ -128,7 +151,12 @@
         card.append(
           image,
           el('p', item.originalUrl, 'history-url'),
-          el('small', date(item.createdAt) + ` · ${item.rays} 条 · ${item.size}px`),
+          el(
+            'small',
+            date(item.createdAt) +
+              ` · ${item.rays} 条 · ${item.size}px` +
+              (viewingUser ? (item.source === 'qr' ? ' · 二维码' : ' · 网页链接') : ''),
+          ),
         );
         const actions = el('div', undefined, 'row-actions');
         const data = async () => {
@@ -149,15 +177,32 @@
       $('history-prev').disabled = page === 1;
       $('history-next').disabled = page * 20 >= result.total;
     }
-    $('history-prev').onclick = () => {
-      page--;
-      load().catch((e) => message(e.message));
-    };
-    $('history-next').onclick = () => {
-      page++;
-      load().catch((e) => message(e.message));
-    };
-    await load();
+    async function turnPage(delta) {
+      if (loading) return;
+      loading = true;
+      const previous = page;
+      page += delta;
+      $('history-prev').disabled = $('history-next').disabled = true;
+      try {
+        await load();
+      } catch (error) {
+        page = previous;
+        message(error.message);
+        $('history-prev').disabled = page === 1;
+        $('history-next').disabled = page * 20 >= total;
+      } finally {
+        loading = false;
+      }
+    }
+    $('history-prev').onclick = () => turnPage(-1);
+    $('history-next').onclick = () => turnPage(1);
+    $('history-prev').disabled = $('history-next').disabled = true;
+    try {
+      await load();
+    } catch (error) {
+      if (viewingUser) $('history-description').textContent = '';
+      throw error;
+    }
   }
   if ($('users-table')) {
     let userPage = 1,
@@ -187,6 +232,10 @@
         ])
           tr.append(el('td', v));
         const td = el('td');
+        const historyLink = el('a', '查看记录', 'record-link');
+        historyLink.href = '/admin/history?user=' + encodeURIComponent(u.id);
+        historyLink.setAttribute('aria-label', '查看 ' + u.username + ' 的生成记录');
+        td.append(historyLink);
         if (u.role !== 'admin')
           td.append(
             button(u.status === 'active' ? '停用' : '启用', async () => {

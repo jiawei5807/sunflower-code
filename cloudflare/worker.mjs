@@ -140,19 +140,37 @@ export function createWorker() {
           if (path === '/api/generate' && method === 'POST') {
             return json(await generate(env, user, await readJSON(request), request), 201);
           }
-          if (path === '/api/history' && method === 'GET') {
-            const page = pageNumber(url),
-              rows = await db
-                .prepare(
-                  "SELECT * FROM generations WHERE user_id=? AND state='ready' ORDER BY created_at DESC,id DESC LIMIT 20 OFFSET ?",
-                )
-                .bind(user.id, (page - 1) * 20)
-                .all();
-            const count = await db
-              .prepare("SELECT COUNT(*) count FROM generations WHERE user_id=? AND state='ready'")
-              .bind(user.id)
+          if (path === '/api/history' && method === 'GET')
+            return json(await listHistory(db, user.id, url));
+          const adminHistory = path.match(
+            /^\/api\/admin\/users\/([a-f0-9-]{36})\/history(?:\/([a-f0-9-]{36})\/image)?$/,
+          );
+          if (adminHistory && method === 'GET') {
+            const ownerId = adminHistory[1];
+            if (adminHistory[2]) {
+              const row = await db
+                .prepare("SELECT * FROM generations WHERE id=? AND user_id=? AND state='ready'")
+                .bind(adminHistory[2], ownerId)
+                .first();
+              if (!row) throw new HttpError(404, '记录不存在。');
+              return await historyImage(env.IMAGES, row, url);
+            }
+            const owner = await db
+              .prepare(
+                'SELECT id,username,role,status,created_at,last_login_at FROM users WHERE id=?',
+              )
+              .bind(ownerId)
               .first();
-            return json({ items: rows.results.map(historyItem), total: count.count, page });
+            if (!owner) throw new HttpError(404, '账号不存在。');
+            const history = await listHistory(db, ownerId, url);
+            return json({
+              ...history,
+              user: publicUser(owner),
+              items: history.items.map((item) => ({
+                ...item,
+                imageUrl: `/api/admin/users/${ownerId}/history/${item.id}/image`,
+              })),
+            });
           }
           const item = path.match(/^\/api\/history\/([a-f0-9-]{36})\/(image|appearance)$/);
           if (item) {
@@ -161,20 +179,8 @@ export function createWorker() {
               .bind(item[1], user.id)
               .first();
             if (!row) throw new HttpError(404, '记录不存在。');
-            if (item[2] === 'image' && method === 'GET') {
-              const object = await env.IMAGES.get(row.object_key);
-              if (!object) throw new HttpError(404, '图片暂不可用。');
-              return new Response(object.body, {
-                headers: {
-                  'content-type': 'image/svg+xml',
-                  'cache-control': 'private, no-store',
-                  'x-content-type-options': 'nosniff',
-                  'content-disposition': `${url.searchParams.has('download') ? 'attachment' : 'inline'}; filename="sunflower-${row.id}.svg"`,
-                  'content-security-policy':
-                    "default-src 'none'; img-src data:; style-src 'unsafe-inline'; sandbox",
-                },
-              });
-            }
+            if (item[2] === 'image' && method === 'GET')
+              return await historyImage(env.IMAGES, row, url);
             if (item[2] === 'appearance' && method === 'POST') {
               await limit(db, 'appearance:' + user.id, 60, 60000);
               const b = await readJSON(request),
@@ -342,9 +348,9 @@ export function createWorker() {
             status: 302,
             headers: { location: '/login', 'cache-control': 'no-store' },
           });
-        if (path === '/admin' || path === '/admin.html') {
+        if (path === '/admin' || path === '/admin.html' || path === '/admin/history') {
           if (user?.role !== 'admin') return new Response('没有管理权限', { status: 403 });
-          return asset(env, request, '/admin.html');
+          return asset(env, request, path === '/admin/history' ? '/history.html' : '/admin.html');
         }
         if (path === '/history') return asset(env, request, '/history.html');
         if (path.startsWith('/src/core/')) return new Response('Not found', { status: 404 });
@@ -357,6 +363,34 @@ export function createWorker() {
       }
     },
   };
+}
+async function listHistory(db, ownerId, url) {
+  const page = pageNumber(url);
+  const rows = await db
+    .prepare(
+      "SELECT * FROM generations WHERE user_id=? AND state='ready' ORDER BY created_at DESC,id DESC LIMIT 20 OFFSET ?",
+    )
+    .bind(ownerId, (page - 1) * 20)
+    .all();
+  const count = await db
+    .prepare("SELECT COUNT(*) count FROM generations WHERE user_id=? AND state='ready'")
+    .bind(ownerId)
+    .first();
+  return { items: rows.results.map(historyItem), total: count.count, page };
+}
+async function historyImage(bucket, row, url) {
+  const object = await bucket.get(row.object_key);
+  if (!object) throw new HttpError(404, '图片暂不可用。');
+  return new Response(object.body, {
+    headers: {
+      'content-type': 'image/svg+xml',
+      'cache-control': 'private, no-store',
+      'x-content-type-options': 'nosniff',
+      'content-disposition': `${url.searchParams.has('download') ? 'attachment' : 'inline'}; filename="sunflower-${row.id}.svg"`,
+      'content-security-policy':
+        "default-src 'none'; img-src data:; style-src 'unsafe-inline'; sandbox",
+    },
+  });
 }
 async function asset(env, request, path) {
   const url = new URL(request.url);

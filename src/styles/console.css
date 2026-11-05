@@ -258,3 +258,28 @@ td button {
     display: none;
   }
 }
+
+.record-link {
+  display: inline-block;
+  color: var(--accent);
+  font-size: 12px;
+  padding: 9px 0;
+  margin-right: 12px;
+  text-decoration: none;
+}
+.record-link:hover {
+  text-decoration: underline;
+}
+#history-title {
+  overflow-wrap: anywhere;
+}
+.page-heading > div {
+  min-width: 0;
+}
+
+@media (max-width: 600px) {
+  .user-history-heading {
+    flex-direction: column;
+    gap: 0;
+  }
+}
