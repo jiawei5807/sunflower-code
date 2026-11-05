@@ -18,7 +18,14 @@ const pages = [
   'guide.html',
   'algorithm.html',
 ];
-for (const name of [...pages, 'src/ui', 'src/styles', 'src/services/qr-reader.js', 'public/vendor'])
+for (const name of [
+  ...pages,
+  'src/ui',
+  'src/styles',
+  'src/services/qr-reader.js',
+  'src/services/shortener.js',
+  'public/vendor',
+])
   await cp(path.join(root, name), path.join(dist, name === 'public/vendor' ? 'vendor' : name), {
     recursive: true,
   });

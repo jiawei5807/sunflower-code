@@ -7,8 +7,7 @@ import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const password = 'Example-Password-123!';
 async function setup(t) {
-  let calls = 0,
-    upstream = () => Response.json({ success: true, data: { url: 'https://surl.id/r/Abc123' } });
+  let calls = 0;
   const mf = new Miniflare({
     modules: true,
     scriptPath: path.join(root, 'dist/_worker.js'),
@@ -28,11 +27,9 @@ async function setup(t) {
           : new Response('page:' + pathname);
       },
     },
-    outboundService: async (request) => {
+    outboundService: async () => {
       calls++;
-      assert.equal(request.headers.get('authorization'), 'Bearer private-test-token');
-      assert.equal(request.url, 'https://api.acedata.cloud/shorturl');
-      return upstream();
+      throw Error('Server must not contact Ace Data');
     },
   });
   t.after(() => mf.dispose());
@@ -69,8 +66,6 @@ async function setup(t) {
     get calls() {
       return calls;
     },
-    fail: () => (upstream = () => new Response('no', { status: 500 })),
-    upstream: (response) => (upstream = response),
   };
 }
 test('invite account lifecycle, access controls, R2 history and accurate counters', async (t) => {
@@ -167,30 +162,26 @@ test('invite account lifecycle, access controls, R2 history and accurate counter
   });
   assert.equal(bad.status, 400);
   const long = { ...body, content: 'https://example.com/?q=' + 'a'.repeat(200) };
+  const needsShort = await call('/api/generate', {
+    method: 'POST',
+    cookie: account,
+    key: 'long-request-123456',
+    body: long,
+  });
+  assert.equal(needsShort.status, 422);
+  assert.equal((await needsShort.json()).code, 'SHORTEN_REQUIRED');
   assert.equal(
     (
       await call('/api/generate', {
         method: 'POST',
         cookie: account,
         key: 'long-request-123456',
-        body: long,
+        body: { ...long, shortUrl: 'https://surl.id/Test123' },
       })
     ).status,
     201,
   );
-  assert.equal(s.calls, 1);
-  s.fail();
-  assert.equal(
-    (
-      await call('/api/generate', {
-        method: 'POST',
-        cookie: account,
-        key: 'failed-request-123456',
-        body: { ...long, content: long.content + 'b' },
-      })
-    ).status,
-    502,
-  );
+  assert.equal(s.calls, 0);
   const users = await (await call('/api/admin/users', { cookie: admin })).json();
   assert.equal(users.items.find((u) => u.id === first.id).generated, 2);
   assert.equal(
@@ -430,51 +421,48 @@ test('history pagination and date statistics use successful completion times', a
   assert.equal(stats.items[0].period, 1);
 });
 
-test('shortener accepts current and legacy URLs, distinguishes upstream failures without leaking secrets', async (t) => {
+test('browser shortener config is authenticated; short URLs are validated and preflight never counts', async (t) => {
   const s = await setup(t);
+  assert.equal((await s.call('/api/shortener/config', { method: 'POST', body: {} })).status, 401);
   const cookie = await s.login('admin');
+  assert.equal(
+    (
+      await s.call('/api/shortener/config', {
+        method: 'POST',
+        cookie,
+        body: {},
+        origin: 'https://evil.test',
+      })
+    ).status,
+    403,
+  );
+  const config = await s.call('/api/shortener/config', { method: 'POST', cookie, body: {} });
+  assert.equal(config.status, 200);
+  assert.equal(config.headers.get('cache-control'), 'no-store');
+  assert.equal((await config.json()).token, 'private-test-token');
   const body = { content: 'https://example.com/?q=' + 'a'.repeat(200), size: 512 };
-  let sequence = 0;
-  const generate = () =>
-    s.call('/api/generate', {
-      method: 'POST',
-      cookie,
-      body,
-      key: 'shortener-test-' + String(++sequence).padStart(6, '0'),
-    });
-  for (const url of ['https://surl.id/Abc123', 'https://surl.id/r/Abc123']) {
-    s.upstream(() => Response.json({ success: true, data: { url } }));
-    const r = await generate();
-    assert.equal(r.status, 201, await r.clone().text());
-    assert.ok((await r.json()).svg.startsWith('<svg'));
+  let i = 0;
+  for (const shortUrl of ['https://surl.id/Abc123', 'https://surl.id/r/Abc123']) {
+    const key = 'client-short-test-' + ++i;
+    const send = (data) => s.call('/api/generate', { method: 'POST', cookie, body: data, key });
+    const preflight = await send(body);
+    assert.equal(preflight.status, 422);
+    assert.equal((await preflight.json()).code, 'SHORTEN_REQUIRED');
+    assert.equal((await s.db.prepare('SELECT COUNT(*) n FROM generations').first()).n, i - 1);
+    const result = await send({ ...body, shortUrl });
+    assert.equal(result.status, 201);
+    const item = await result.json();
+    assert.ok(item.svg.startsWith('<svg'));
+    const stored = await s.db
+      .prepare('SELECT original_url,encoded_url FROM generations WHERE id=?')
+      .bind(item.id)
+      .first();
+    assert.equal(stored.original_url, body.content);
+    assert.equal(stored.encoded_url, shortUrl);
+    assert.equal((await send({ ...body, shortUrl })).status, 201);
+    assert.equal((await send({ ...body, shortUrl: 'https://surl.id/Changed' })).status, 409);
   }
-  const statuses = {
-    401: 'SHORTENER_AUTH',
-    402: 'SHORTENER_QUOTA',
-    403: 'SHORTENER_FORBIDDEN',
-    429: 'SHORTENER_RATE_LIMIT',
-    500: 'SHORTENER_HTTP',
-    302: 'SHORTENER_HTTP',
-  };
-  for (const [upstreamStatus, code] of Object.entries(statuses)) {
-    const calls = s.calls;
-    s.upstream(
-      () =>
-        new Response('sensitive: private-test-token', {
-          status: Number(upstreamStatus),
-          headers: { location: 'https://other.test' },
-        }),
-    );
-    const r = await generate();
-    assert.equal(r.status, upstreamStatus === '429' ? 429 : 502);
-    const data = await r.json();
-    assert.equal(data.code, code);
-    assert.ok(data.error.includes('HTTP ' + upstreamStatus));
-    assert.ok(!JSON.stringify(data).includes('private-test-token'));
-    assert.equal(s.calls, calls + 1, 'must not follow redirects or retry paid requests');
-    assert.equal((await s.call('/api/auth/me', { cookie })).status, 200);
-  }
-  for (const url of [
+  for (const shortUrl of [
     'https://surl.id.evil.test/Abc123',
     'http://surl.id/Abc123',
     'https://surl.id/Abc123?secret=x',
@@ -482,10 +470,26 @@ test('shortener accepts current and legacy URLs, distinguishes upstream failures
     'https://surl.id/Abc123#fragment',
     'https://evil.test/Abc123',
   ]) {
-    s.upstream(() => Response.json({ success: true, data: { url } }));
-    const r = await generate();
-    assert.equal(r.status, 502);
+    const r = await s.call('/api/generate', {
+      method: 'POST',
+      cookie,
+      body: { ...body, shortUrl },
+      key: 'client-invalid-' + ++i,
+    });
+    assert.equal(r.status, 400);
     assert.equal((await r.json()).code, 'SHORTENER_BAD_RESPONSE');
   }
+  assert.equal(
+    (
+      await s.call('/api/generate', {
+        method: 'POST',
+        cookie,
+        body: { content: 'https://example.com', shortUrl: 'https://surl.id/Abc123' },
+        key: 'unnecessary-short-123',
+      })
+    ).status,
+    400,
+  );
   assert.equal((await (await s.call('/api/history', { cookie })).json()).total, 2);
+  assert.equal(s.calls, 0);
 });

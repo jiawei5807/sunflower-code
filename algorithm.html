@@ -1,5 +1,5 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>算法说明 · 葵花码</title><link rel="stylesheet" href="src/styles/docs.css"><link rel="icon" href="data:,"></head><body><header class="topbar"><a class="brand" href="index.html">葵花码</a><a class="help-link" href="guide.html">使用说明</a></header><main class="guide"><a class="back" href="index.html">← 返回生成器</a><h1>葵花码算法说明</h1><nav class="doc-toc" aria-label="目录"><a href="#section-1">1. 处理流程</a><a href="#section-2">2. 输入校验</a><a href="#section-3">3. 载荷编码</a><a href="#section-4">4. 容量与自动选择</a><a href="#section-5">5. 补齐数据字节</a><a href="#section-6">6. Reed–Solomon 纠错</a><a href="#section-7">7. 放射矩阵与固定表</a><a href="#section-8">8. 掩码评分</a><a href="#section-9">9. 回读校验</a><a href="#section-10">10. SVG 几何绘制</a><a href="#section-11">11. 导出和交互状态</a><a href="#section-12">12. 完整计算示例</a><a href="#section-13">13. 复杂度与复用接口</a><a href="#section-14">14. 服务端生成、转链与历史记录</a><a href="#section-15">15. 二维码图片转换</a><a href="#section-16">16. 邀请注册与账号权限</a></nav>
-<p>本文描述当前实现实际执行的算法。网页链接可手动输入，也可从上传的普通二维码图片中识别。编码以 HTTP/HTTPS 网页链接为输入，以放射状二值矩阵为中间结果，最后输出 SVG 或 PNG。编码与 SVG 绘制在服务端完成，超容量时由服务端申请短链接；浏览器负责二维码识别、头像裁剪与 PNG 导出。</p>
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>算法说明 · 葵花码</title><link rel="stylesheet" href="src/styles/docs.css"><link rel="icon" href="data:,"></head><body><header class="topbar"><a class="brand" href="index.html">葵花码</a><a class="help-link" href="guide.html">使用说明</a></header><main class="guide"><a class="back" href="index.html">← 返回生成器</a><h1>葵花码算法说明</h1><nav class="doc-toc" aria-label="目录"><a href="#section-1">1. 处理流程</a><a href="#section-2">2. 输入校验</a><a href="#section-3">3. 载荷编码</a><a href="#section-4">4. 容量与自动选择</a><a href="#section-5">5. 补齐数据字节</a><a href="#section-6">6. Reed–Solomon 纠错</a><a href="#section-7">7. 放射矩阵与固定表</a><a href="#section-8">8. 掩码评分</a><a href="#section-9">9. 回读校验</a><a href="#section-10">10. SVG 几何绘制</a><a href="#section-11">11. 导出和交互状态</a><a href="#section-12">12. 完整计算示例</a><a href="#section-13">13. 复杂度与复用接口</a><a href="#section-14">14. 浏览器转链、服务端生成与历史记录</a><a href="#section-15">15. 二维码图片转换</a><a href="#section-16">16. 邀请注册与账号权限</a></nav>
+<p>本文描述当前实现实际执行的算法。网页链接可手动输入，也可从上传的普通二维码图片中识别。编码以 HTTP/HTTPS 网页链接为输入，以放射状二值矩阵为中间结果，最后输出 SVG 或 PNG。编码与 SVG 绘制在服务端完成，超容量时由浏览器申请短链接；浏览器负责二维码识别、头像裁剪与 PNG 导出。</p>
 <h2 id="section-1">1. 处理流程</h2>
 <pre><code>
 链接校验
@@ -364,34 +364,24 @@ const svg = SunflowerCode.renderSvg(result, { size: 1024, avatar: &#x27;&#x27; }
 
 </code></pre>
 <p><code>encode</code> 成功时返回版本、等级、掩码、矩阵、评分、输入文本、载荷位数、数据容量和交织码字；失败时抛出错误。<code>avatar</code> 必须为空或本地 PNG/JPEG/WebP 的 Base64 data URL。图像识别、目标网页访问与受损码修复不属于这三个接口的功能。</p>
-<h2 id="section-14">14. 服务端生成、转链与历史记录</h2>
+<h2 id="section-14">14. 浏览器转链、服务端生成与历史记录</h2>
 <h3>14.1 调用条件</h3>
-<p>浏览器将网址、头像和编码参数提交到登录后可用的 <code>POST /api/generate</code>，并带上随机 <code>Idempotency-Key</code>。Pages Functions 先校验会话、账号状态、同源 Origin、JSON 请求体和 HTTP/HTTPS 网址，再运行编码器。仅 <code>CapacityError</code> 启动转链；格式与设置错误不提交给第三方。</p>
-<p>编码核心打包进 <code>_worker.js</code>，不作为静态脚本下发。未登录不能通过 API 生成，包括容量内的短网址。二维码图片的识别仍在浏览器完成。</p>
-<h3>14.2 外部转链</h3>
-<p><code>cloudflare/lib/generation.mjs</code> 向固定地址 <code>https://api.acedata.cloud/shorturl</code> 发起 POST，JSON 为 <code>{ &quot;content&quot;: &quot;原网址&quot; }</code>，从运行时机密 <code>ACEDATA_TOKEN</code> 读取 Token 并加上 Bearer 前缀。浏览器无需填写密钥，也不会接收到密钥。</p>
-<p>上游超时 20 秒；使用 workerd 支持的 <code>redirect: &#x27;manual&#x27;</code>，拒绝所有非成功 HTTP 状态，包括重定向。网络错误、非 JSON、<code>success !== true</code> 均不产生成功记录；不向页面透传服务商的原始报错。HTTP 401 提示检查服务端 Token，402 提示检查余额或额度，403 提示检查接口权限或访问限制，429 提示请求频繁；其他状态展示上游 HTTP 状态码。除限流返回 429 外，上游错误统一映射为本站 502，避免误判为用户登录失效。服务端日志仅记录状态码与固定错误代码。</p>
-<p>接受的成功响应形式：</p>
-<pre><code>
-{&quot;success&quot;:true,&quot;data&quot;:{&quot;url&quot;:&quot;https://surl.id/r/Abc123&quot;}}
-
-</code></pre>
-<p>短链必须符合 <code>https://surl.id/</code> 或 <code>https://surl.id/r/</code> 加 1～64 个字母、数字、下划线或连字符；拒绝其他域名、查询和片段。按原射线与纠错重新编码，仍装不下则提示改为自动，不递归缩短。页面保留原网址，图片编码短链，跳转由第三方承接。</p>
-<h3>14.3 幂等与保存顺序</h3>
-<ol>
-<li>校验参数，计算包含网址、外观、编码设置、来源的 SHA-256 摘要。</li>
-<li>在 D1 以 <code>(user_id, request_key)</code> 唯一约束登记 <code>pending</code> 记录。同一标识的成功重试返回原图；不同内容冲突；正在处理或此前失败的请求不重复执行。</li>
-<li>运行编码与必要的转链，生成 SVG，写入私有 R2 的 <code>users/&lt;user-id&gt;/&lt;record-id&gt;.svg</code>。</li>
-<li>R2 写入成功后，将 D1 状态改为 <code>ready</code>，记录实际编码网址、尺寸、射线、纠错和完成时间。</li>
-<li>只有 <code>ready</code> 计入历史和生成次数；明确失败标为 <code>failed</code> 并尝试清理对象。</li>
-</ol>
-<p>D1 与 R2 没有跨资源事务。数据库提交响应丢失时先核查状态，避免删除已经提交的成功图片；进程突然中断仍可能留下 <code>pending</code> 或孤立对象，不能据此增加次数。运维处理见部署文档。</p>
+<p>浏览器向登录保护的 <code>POST /api/generate</code> 提交原网址、外观、编码参数和随机 <code>Idempotency-Key</code>。服务端校验会话、账号状态、同源 Origin、请求体、网址和参数，再运行编码器。仅 <code>CapacityError</code> 返回 HTTP 422 和 <code>SHORTEN_REQUIRED</code>，此时不写生成记录、不计数。</p>
+<p>前端收到该代码后读取登录保护的 <code>POST /api/shortener/config</code>，取得运行时 ACEDATA_TOKEN，在浏览器直接申请短链。成功后使用相同请求标识再次提交原网址与 shortUrl。服务端检查短链格式，重新编码并保存。容量内网址不读取 Token、不请求 Ace Data。</p>
+<h3>14.2 外部请求与凭据</h3>
+<p><code>src/services/shortener.js</code> 向固定地址 <code>https://api.acedata.cloud/shorturl</code> 发起 POST，JSON 为 <code>{ &quot;content&quot;: &quot;原网址&quot; }</code>，Authorization 使用 Bearer Token。请求由用户浏览器网络发出；不带本站 Cookie 和 Referer，禁止重定向，超时 20 秒。需要服务商支持 CORS 预检。</p>
+<p>Token 仅在登录后经同源接口下发，响应 no-store，不写入源码或浏览器持久存储。登录用户可读取并复用 Token，本站限流无法约束站外调用。用户无需填写 Token，但这个模式不能宣称密钥只在服务端可见。</p>
+<p>HTTP 401/402/403/429 分别提示认证、额度、拒绝访问和限流，其他错误显示状态码。错误不会触发本站退出登录，也不显示服务商原始响应。网络/CORS/重定向错误由浏览器捕获，显示连接失败；失败不自动重试，以免重复调用收费接口。</p>
+<h3>14.3 短链校验与保存</h3>
+<p>浏览器和服务端均只接受 <code>https://surl.id/</code> 或 <code>https://surl.id/r/</code> 加 1～64 个字母、数字、下划线或连字符，拒绝其他域名、查询或片段。服务端只校验格式，不验证实际跳转目标，原网址是用户提交数据。重新编码仍超容量时提示改为自动，不递归缩短。</p>
+<p>服务端对原网址、shortUrl、外观、设置和来源计算 SHA-256 摘要，以 <code>(user_id, request_key)</code> 唯一约束登记 pending。同一标识相同内容的成功重试返回已有图片，不同内容拒绝。预检查没有写记录，因此携带短链的第二次提交可沿用标识。</p>
+<p>生成 SVG 写入私有 R2，成功后在 D1 标为 ready 并记录编码网址、外观和完成时间。只有 ready 计入历史和次数。明确失败标为 failed 并尝试清理对象；D1/R2 无跨资源事务，提交响应丢失时先核查状态，突然中断仍可能留下 pending 或孤立对象。</p>
 <h3>14.4 外观与统计</h3>
-<p>尺寸或头像变化会重新渲染同一条历史：先保存新的 R2 对象，再按旧对象指针条件更新 D1，成功后删除旧对象。并发冲突不会覆盖另一操作，也不增加生成次数。浏览器从保存的 SVG 栅格化 PNG，下载、复制和历史访问均不计数。</p>
-<p>管理员可查看每个账号累计、今日和指定日期的成功次数。今日与日期筛选按北京时间计算，以服务端成功完成时间为准。用户主动再次点击生成使用新的请求标识，产生新记录，不按网址去重。</p>
-<h3>14.5 并发、限流和取消</h3>
-<p>前端禁止重复提交，等待超时 30 秒；输入变化取消旧等待并通过任务版本号阻止迟到结果覆盖页面。浏览器取消不代表服务端任务取消，已完成保存仍计数，超时后应先查看历史。</p>
-<p>生成接口每账号每分钟最多 30 次新请求，外观更新每分钟最多 60 次；D1 原子计数跨运行实例生效。请求体上限 800,000 字节，网址最多 5000 个 UTF-16 代码单元，头像仅接受经浏览器转换的 PNG data URL。普通二维码原文件不上传。</p>
+<p>头像和尺寸变化保存新 R2 对象，再按旧对象指针条件更新 D1，成功后删除旧对象，不增加条数。下载、复制和历史读取不计数。管理员统计以服务端完成时间为准，日期按北京时间计算。主动再次点击生成是新请求、新记录。</p>
+<h3>14.5 取消与限流</h3>
+<p>前端流程最长等待 45 秒；输入变化、选择新图片或离开页面取消旧请求，任务版本号阻止迟到结果覆盖。浏览器取消不能撤销已经收到的外部请求或服务端保存，超时先检查历史。</p>
+<p>生成接口每账号每分钟最多 60 次新请求（超长链接包含两次），转链配置每分钟最多 30 次，外观更新每分钟最多 60 次。D1 原子计数跨实例生效。服务商接收的站外请求不受这些限制。</p>
+<p>请求体上限 800,000 字节，网址最多 5000 个 UTF-16 代码单元，头像为 PNG data URL。普通二维码原图只在浏览器识别，不上传。</p>
 <h2 id="section-15">15. 二维码图片转换</h2>
 <h3>15.1 读取与预处理</h3>
 <p><code>src/services/qr-reader.js</code> 提供 <code>SunflowerQR.read(file, signal)</code>，返回识别文本。图片仅通过本地 Blob URL 加载；只接受 PNG、JPEG、WebP，文件上限 10 MB，解码后像素总数上限 4000 万。图片加载超过 15 秒则报错。</p>
@@ -406,7 +396,7 @@ const svg = SunflowerCode.renderSvg(result, { size: 1024, avatar: &#x27;&#x27; }
 <h3>15.4 并发与资源回收</h3>
 <p>每次图片选择创建一个 AbortController。开始识别时使旧预览失效、禁用导出；输入变动、编码参数变动、新图片选择或离开页面均取消旧任务。图片加载、每轮像素分析以及结果写入前检查取消状态，只有当前任务可以更新输入或显示错误。读取库的单轮同步解码不能中途打断，但分析尺寸有上限，迟到结果也不会覆盖新任务。</p>
 <p>无论成功、失败或取消都释放 Blob URL；分析完成后缩小临时 Canvas 以释放像素缓冲。选择后清空文件输入框，使同一张图片也可再次上传。识别失败时保留原网址和设置，由用户更换图片或重新生成。</p>
-<p>二维码库离线随包提供，不依赖外部 CDN 或原生 BarcodeDetector。图片解码本身在本地完成；生成与保存葵花码必须联网并登录，超容量网址由服务端调用转链服务。微信专用小程序码不属于普通 QR Code，本功能不解析它。</p>
+<p>二维码库离线随包提供，不依赖外部 CDN 或原生 BarcodeDetector。图片解码本身在本地完成；生成与保存葵花码必须联网并登录，超容量网址由浏览器直接调用转链服务。微信专用小程序码不属于普通 QR Code，本功能不解析它。</p>
 <h2 id="section-16">16. 邀请注册与账号权限</h2>
 <p>邀请码由 32 字节密码学随机数生成，链接形如 <code>/register?invite=&lt;64位十六进制字符串&gt;</code>。数据库仅保存 SHA-256 哈希；创建响应显示明文链接一次。打开页面不消耗邀请，注册成功后才失效。</p>
 <p>注册将“从有效且未使用的邀请插入用户”和“标记邀请已使用”放在同一个 D1 batch 事务中。用户表 <code>invite_id</code> 唯一约束防止并发双重使用；账号唯一冲突使事务回滚，不消耗邀请。失效、撤销和过期邀请不能注册。</p>

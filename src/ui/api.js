@@ -19,7 +19,9 @@ globalThis.AppAPI = {
     }
     if (!response.ok) {
       if (response.status === 401 && !path.endsWith('/login')) location.assign('/login');
-      throw new Error(data.error || '操作失败，请重试。');
+      const error = new Error(data.error || '操作失败，请重试。');
+      error.code = data.code;
+      throw error;
     }
     return data;
   },

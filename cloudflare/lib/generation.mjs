@@ -36,54 +36,6 @@ export function validateAppearance(body) {
   }
   return { size, avatar };
 }
-async function shorten(env, text, fetchImpl) {
-  if (!env.ACEDATA_TOKEN?.trim()) throw new HttpError(503, '转链服务未配置，请联系管理员。');
-  let r;
-  try {
-    r = await fetchImpl('https://api.acedata.cloud/shorturl', {
-      method: 'POST',
-      headers: {
-        authorization: `Bearer ${env.ACEDATA_TOKEN.trim()}`,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({ content: text }),
-      redirect: 'manual',
-      signal: AbortSignal.timeout(20000),
-    });
-  } catch {
-    throw new HttpError(502, '转链服务连接失败，请稍后重试。');
-  }
-  if (!r.ok) {
-    const failures = {
-      401: ['SHORTENER_AUTH', '转链认证失败（HTTP 401），请管理员检查 ACEDATA_TOKEN。'],
-      402: ['SHORTENER_QUOTA', '转链账户余额或额度不足（HTTP 402），请管理员检查账户。'],
-      403: [
-        'SHORTENER_FORBIDDEN',
-        '转链服务拒绝访问（HTTP 403），请管理员检查接口权限或服务商访问限制。',
-      ],
-      429: ['SHORTENER_RATE_LIMIT', '转链服务请求过于频繁（HTTP 429），请稍后重试。'],
-    };
-    const [code, message] = failures[r.status] || [
-      'SHORTENER_HTTP',
-      `转链服务返回异常（HTTP ${r.status}），请联系管理员。`,
-    ];
-    console.warn('shortener_rejected', { status: r.status, code });
-    // Upstream authentication failures are not application-session failures.
-    throw new HttpError(r.status === 429 ? 429 : 502, message, code);
-  }
-  let result;
-  try {
-    result = await r.json();
-  } catch {
-    throw new HttpError(502, '转链服务返回异常。');
-  }
-  if (
-    result?.success !== true ||
-    !/^https:\/\/surl\.id\/(?:r\/)?[A-Za-z0-9_-]{1,64}$/.test(result?.data?.url || '')
-  )
-    throw new HttpError(502, '转链服务返回的短链无效，请联系管理员。', 'SHORTENER_BAD_RESPONSE');
-  return result.data.url;
-}
 export const historyItem = (r) => ({
   id: r.id,
   originalUrl: r.original_url,
@@ -94,7 +46,7 @@ export const historyItem = (r) => ({
   createdAt: r.completed_at,
   imageUrl: `/api/history/${r.id}/image`,
 });
-export async function generate(env, user, body, request, fetchImpl) {
+export async function generate(env, user, body, request) {
   let content;
   try {
     content = codec.validateUrl(body.content);
@@ -108,11 +60,19 @@ export async function generate(env, user, body, request, fetchImpl) {
     !['auto', 'L', 'M', 'Q', 'H'].includes(options.level)
   )
     throw new HttpError(400, '编码设置无效。');
+  const shortUrl = body.shortUrl ?? '';
+  if (
+    typeof shortUrl !== 'string' ||
+    (shortUrl && !/^https:\/\/surl\.id\/(?:r\/)?[A-Za-z0-9_-]{1,64}$/.test(shortUrl))
+  )
+    throw new HttpError(400, '短链格式无效。', 'SHORTENER_BAD_RESPONSE');
   const key = request.headers.get('idempotency-key');
   if (!key || !/^[a-zA-Z0-9_-]{16,80}$/.test(key))
     throw new HttpError(400, '请求标识无效，请刷新页面。');
   const source = body.source === 'qr' ? 'qr' : 'link';
-  const hash = await digest(JSON.stringify({ content, ...appearance, ...options, source }));
+  const hash = await digest(
+    JSON.stringify({ content, shortUrl, ...appearance, ...options, source }),
+  );
   let existing = await env.DB.prepare('SELECT * FROM generations WHERE user_id=? AND request_key=?')
     .bind(user.id, key)
     .first();
@@ -130,7 +90,21 @@ export async function generate(env, user, body, request, fetchImpl) {
         : '上次生成失败，请重新生成。',
     );
   }
-  await limit(env.DB, 'generate:' + user.id, 30, 60000);
+  await limit(env.DB, 'generate:' + user.id, 60, 60000);
+  let encoded;
+  try {
+    encoded = codec.encode(content, options);
+  } catch (e) {
+    if (!(e instanceof codec.CapacityError)) throw e;
+    if (!shortUrl) throw new HttpError(422, '链接超出容量，需要转链。', 'SHORTEN_REQUIRED');
+    try {
+      encoded = codec.encode(shortUrl, options);
+    } catch {
+      throw new HttpError(400, '短链仍超出容量，请将射线和纠错改为自动。');
+    }
+  }
+  if (shortUrl && encoded.text !== shortUrl)
+    throw new HttpError(400, '当前链接无需转链，请重新生成。');
   const id = crypto.randomUUID(),
     now = Date.now();
   const inserted = await env.DB.prepare(
@@ -141,18 +115,6 @@ export async function generate(env, user, body, request, fetchImpl) {
   if (inserted.meta.changes !== 1) throw new HttpError(409, '请求正在处理，请稍后到历史记录查看。');
   const objectKey = `users/${user.id}/${id}.svg`;
   try {
-    let encoded;
-    try {
-      encoded = codec.encode(content, options);
-    } catch (e) {
-      if (!(e instanceof codec.CapacityError)) throw e;
-      const short = await shorten(env, content, fetchImpl);
-      try {
-        encoded = codec.encode(short, options);
-      } catch {
-        throw new HttpError(400, '短链仍超出容量，请将射线和纠错改为自动。');
-      }
-    }
     const svg = codec.renderSvg(encoded, appearance);
     await env.IMAGES.put(objectKey, svg, { httpMetadata: { contentType: 'image/svg+xml' } });
     const row = await env.DB.prepare(

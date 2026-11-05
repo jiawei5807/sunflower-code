@@ -27,12 +27,6 @@ const mf = new Miniflare({
     ADMIN_PASSWORD: env.ADMIN_PASSWORD || '',
     ACEDATA_TOKEN: env.ACEDATA_TOKEN || '',
   },
-  ...(env.SUNFLOWER_TEST_MODE === '1'
-    ? {
-        outboundService: () =>
-          Response.json({ success: true, data: { url: 'https://surl.id/r/TestCode12' } }),
-      }
-    : {}),
   serviceBindings: {
     ASSETS: async (request) => {
       const pathname = decodeURIComponent(new URL(request.url).pathname);

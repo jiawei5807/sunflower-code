@@ -21,7 +21,7 @@ const audit = (db, user, action, target) =>
   db
     .prepare('INSERT INTO audit_events VALUES(?,?,?,?,?)')
     .bind(crypto.randomUUID(), user.id, action, target, Date.now());
-export function createWorker(fetchImpl = fetch) {
+export function createWorker() {
   return {
     async fetch(request, env) {
       const url = new URL(request.url),
@@ -129,11 +129,16 @@ export function createWorker(fetchImpl = fetch) {
               'set-cookie': sessionCookie(request, '', true),
             });
           }
+          if (path === '/api/shortener/config' && method === 'POST') {
+            await readJSON(request, 4096);
+            await limit(db, 'shortener-config:' + user.id, 30, 60000);
+            const token = env.ACEDATA_TOKEN?.trim();
+            if (!token) throw new HttpError(503, '转链服务未配置，请联系管理员。');
+            // Browser direct calls necessarily expose this credential to signed-in users.
+            return json({ token });
+          }
           if (path === '/api/generate' && method === 'POST') {
-            return json(
-              await generate(env, user, await readJSON(request), request, fetchImpl),
-              201,
-            );
+            return json(await generate(env, user, await readJSON(request), request), 201);
           }
           if (path === '/api/history' && method === 'GET') {
             const page = pageNumber(url),

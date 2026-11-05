@@ -3,7 +3,7 @@ import os,subprocess,time,tempfile,urllib.request
 from pathlib import Path
 root=Path(__file__).resolve().parents[1]
 with tempfile.TemporaryDirectory() as state:
- env={**os.environ,'PORT':'5181','ADMIN_USERNAME':'admin','ADMIN_PASSWORD':'Local-Test-Password-2026!','ACEDATA_TOKEN':'test-only-token','SUNFLOWER_TEST_MODE':'1','LOCAL_STATE':state,'SUNFLOWER_BASE_URL':'http://127.0.0.1:5181'}
+ env={**os.environ,'PORT':'5181','ADMIN_USERNAME':'admin','ADMIN_PASSWORD':'Local-Test-Password-2026!','ACEDATA_TOKEN':'test-only-token','LOCAL_STATE':state,'SUNFLOWER_BASE_URL':'http://127.0.0.1:5181'}
  server=subprocess.Popen(['node','scripts/dev.mjs'],cwd=root,env=env)
  try:
   for attempt in range(100):

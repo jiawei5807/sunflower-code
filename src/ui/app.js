@@ -141,18 +141,26 @@
       timeout = setTimeout(() => {
         timedOut = true;
         controller.abort();
-      }, 30000);
-      const result = await api.request('/api/generate', {
-        method: 'POST',
-        body: {
-          content: text,
-          ...options,
-          ...appearance,
-          source: sourceMode,
-        },
-        key: operationKey,
-        signal: controller.signal,
-      });
+      }, 45000);
+      const body = { content: text, ...options, ...appearance, source: sourceMode };
+      const submit = () =>
+        api.request('/api/generate', {
+          method: 'POST',
+          body,
+          key: operationKey,
+          signal: controller.signal,
+        });
+      let result;
+      try {
+        result = await submit();
+      } catch (cause) {
+        if (cause.code !== 'SHORTEN_REQUIRED') throw cause;
+        status('正在转链…', true);
+        body.shortUrl = await SunflowerShortener.shorten(text, controller.signal);
+        if (current !== revision || controller.signal.aborted) return;
+        status('正在生成并保存到历史记录…', true);
+        result = await submit();
+      }
       if (current !== revision) return;
       clearTimeout(timeout);
       record = result;
