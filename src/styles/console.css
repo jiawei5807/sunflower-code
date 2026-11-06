@@ -406,3 +406,51 @@ td button {
     box-sizing: border-box;
   }
 }
+
+.admin-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  width: min(100%, 520px);
+  margin: 0 0 24px;
+  padding: 5px;
+  background: #e3f1fc;
+  border: 1px solid #d2e7f7;
+  border-radius: 14px;
+}
+.admin-tabs [role='tab'] {
+  transition: none;
+  min-height: 44px;
+  padding: 11px 10px;
+  border: 0;
+  color: var(--muted);
+  font-size: 14px;
+  white-space: nowrap;
+}
+.admin-tabs [aria-selected='true'],
+.admin-tabs [aria-selected='true']:hover {
+  background: white;
+  color: var(--accent);
+  font-weight: 600;
+  box-shadow: 0 2px 8px #0e6aa414;
+}
+[role='tabpanel']:focus-visible {
+  outline: 3px solid #7dc8f5;
+  outline-offset: 4px;
+  border-radius: 18px;
+}
+@media (max-width: 600px) {
+  .admin-tabs {
+    margin-bottom: 18px;
+  }
+  .admin-tabs [role='tab'] {
+    padding-inline: 5px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 600px) {
+  #support-form label {
+    flex-basis: 100%;
+  }
+}

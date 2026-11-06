@@ -11,9 +11,20 @@ with sync_playwright() as p:
  admin.goto(BASE);expect(admin).to_have_url(BASE+'/login');expect(admin.locator('#auth-title')).to_have_text('欢迎回来')
  admin.fill('#auth-username','admin');admin.fill('#auth-password',PASSWORD);admin.click('#auth-submit');expect(admin).to_have_url(BASE+'/');expect(admin.locator('#current-user')).to_have_text('admin')
  expect(admin.locator('#png')).to_be_disabled();admin.click('#admin-link');expect(admin.locator('#users-body')).to_contain_text('admin')
+ expect(admin.get_by_role('tab',name='账号与用量')).to_have_attribute('aria-selected','true')
+ expect(admin.locator('#invite-form')).to_be_hidden();expect(admin.locator('#support-form')).to_be_hidden()
+ admin.fill('#user-query','admin');admin.click('#admin-tab-invites');expect(admin.locator('#users-table')).to_be_hidden()
  admin.fill('#invite-count','3');admin.fill('#invite-note','browser test');admin.locator('#invite-form button[type=submit]').click();expect(admin.locator('#invite-result')).to_be_visible()
  links=admin.locator('#invite-links').input_value().splitlines();assert len(links)==3
+ admin.click('#admin-tab-support');admin.fill('#support-contact','contact draft');admin.click('#admin-tab-invites')
+ expect(admin.locator('#invite-links')).to_have_value('\n'.join(links));expect(admin.locator('#invite-note')).to_have_value('browser test')
+ admin.click('#admin-tab-accounts');expect(admin.locator('#user-query')).to_have_value('admin');admin.fill('#user-query','');admin.click('#admin-tab-support');expect(admin.locator('#support-contact')).to_have_value('contact draft')
  admin.fill('#support-contact','微信：sunflower_support <客服>');admin.fill('#support-url','mailto:support@example.com');admin.locator('#support-form button').click();expect(admin.locator('#security-message')).to_contain_text('已保存')
+ admin.reload();expect(admin.get_by_role('tab',name='联系支持')).to_have_attribute('aria-selected','true');expect(admin.locator('#support-contact')).to_have_value('微信：sunflower_support <客服>')
+ admin.locator('#admin-tab-support').focus();admin.keyboard.press('Home');expect(admin.locator('#admin-tab-accounts')).to_be_focused()
+ admin.keyboard.press('ArrowLeft');expect(admin.locator('#admin-tab-support')).to_be_focused();admin.keyboard.press('ArrowRight');expect(admin.locator('#admin-tab-accounts')).to_be_focused()
+ admin.click('#admin-tab-invites');admin.click('#admin-tab-support');admin.go_back();expect(admin.locator('#admin-tab-invites')).to_have_attribute('aria-selected','true');admin.go_forward();expect(admin.locator('#admin-tab-support')).to_have_attribute('aria-selected','true')
+ admin.click('#admin-tab-accounts')
  visitor=browser.new_page(viewport={'width':390,'height':844});visitor.goto(BASE+'/login')
  expect(visitor.locator('details')).to_have_count(0);expect(visitor.locator('[data-support]')).to_be_hidden()
  Path('test-results').mkdir(exist_ok=True);visitor.screenshot(path='test-results/login-mobile.png',full_page=True)
@@ -89,7 +100,11 @@ with sync_playwright() as p:
  user.route('**/api/history?*',lambda route:route.fulfill(status=503,content_type='application/json',body='{"error":"temporary failure"}'))
  user.fill('#history-query','failed_search');user.locator('#history-filter button[type=submit]').click();expect(user.locator('#page-message')).to_contain_text('temporary failure');expect(user.locator('#history-query')).to_have_value('');expect(user.locator('.history-card')).to_have_count(2)
  user.unroute('**/api/history?*');user.click('#history-clear');expect(user.locator('#page-message')).to_be_hidden()
- admin.locator('#user-filter button').click();row=admin.locator('#users-body tr').filter(has_text='browser_user');expect(row).to_be_visible();assert row.locator('td').nth(3).inner_text()=='2'
+ account_requests=[]
+ admin.on('request',lambda req:account_requests.append(req.url))
+ with admin.expect_response('**/api/admin/users?*'):admin.locator('#user-filter button').click()
+ assert not any('/api/admin/invites' in url for url in account_requests)
+ row=admin.locator('#users-body tr').filter(has_text='browser_user');expect(row).to_be_visible();assert row.locator('td').nth(3).inner_text()=='2'
  # Administrator can inspect another user's images without affecting counts.
  row.get_by_role('link',name='查看 browser_user 的生成记录').click()
  expect(admin.locator('#history-title')).to_have_text('browser_user 的生成记录')
@@ -128,6 +143,20 @@ with sync_playwright() as p:
     action.scroll_into_view_if_needed();box=action.bounding_box();assert box['x']>=0 and box['x']+box['width']<=width and box['height']>=40
   if width==390:user.screenshot(path='test-results/history-mobile.png',full_page=True);admin.screenshot(path='test-results/admin-mobile.png',full_page=True)
   if width==1440:admin.screenshot(path='test-results/admin-desktop.png',full_page=True);user.screenshot(path='test-results/history-desktop.png',full_page=True)
+  for name in ['accounts','invites','support']:
+   admin.click('#admin-tab-'+name)
+   expect(admin.get_by_role('tabpanel')).to_have_count(1)
+   assert admin.evaluate('document.documentElement.scrollWidth<=innerWidth')
+   for tab in admin.get_by_role('tab').all():
+    box=tab.bounding_box();assert box['x']>=0 and box['x']+box['width']<=width and box['height']>=44
+   if width in [390,1440]:admin.screenshot(path=f'test-results/admin-{name}-{width}.png',full_page=True)
+  admin.click('#admin-tab-accounts')
+ # Hidden-tab failures do not appear in or block other panels.
+ admin.route('**/api/admin/invites?*',lambda route:route.fulfill(status=503,content_type='application/json',body='{"error":"invite loading failed"}'))
+ admin.reload();expect(admin.locator('#users-body')).to_contain_text('browser_user');expect(admin.locator('#page-message')).to_be_hidden();expect(admin.locator('#invites-message')).to_be_hidden()
+ admin.click('#admin-tab-invites');expect(admin.locator('#invites-message')).to_contain_text('invite loading failed')
+ admin.click('#admin-tab-support');expect(admin.locator('#support-form')).to_be_visible();expect(admin.locator('#invites-message')).to_be_hidden()
+ admin.unroute('**/api/admin/invites?*');admin.goto(BASE+'/admin?tab=unknown');expect(admin.locator('#admin-tab-accounts')).to_have_attribute('aria-selected','true')
  # Reset a user through the real administrator dialog; old sessions must stop working.
  admin.set_viewport_size({'width':390,'height':844});row.get_by_role('button',name='重置密码').click()
  admin.fill('#reset-admin-password',PASSWORD);admin.locator('#reset-dialog button[type=submit]').click();expect(admin.locator('#reset-result')).to_be_visible()
@@ -146,4 +175,4 @@ with sync_playwright() as p:
  visitor=browser.new_page();visitor.goto(BASE+'/reset-password');expect(visitor.locator('#reset-form')).to_be_hidden();expect(visitor.locator('#auth-help')).to_contain_text('管理员提供的重置链接');visitor.close()
  assert not errors,errors
  browser.close()
-print('PASS: admin initialization, invite/register/login, real QR, R2 history PNG/SVG/avatars, counts, disable/re-enable, mobile/desktop, support, search, one-time password reset, administrator password change')
+print('PASS: admin initialization, invite/register/login, real QR, R2 history PNG/SVG/avatars, counts, disable/re-enable, mobile/desktop, support, search, one-time password reset, administrator password change, admin tabs/drafts/navigation/error isolation')

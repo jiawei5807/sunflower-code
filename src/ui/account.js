@@ -6,8 +6,8 @@
     value
       ? new Date(value).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false })
       : '—';
-  const message = (text) => {
-    const el = $('page-message');
+  const message = (text, target = 'page-message') => {
+    const el = $(target);
     if (el) {
       el.textContent = text;
       el.hidden = !text;
@@ -27,7 +27,7 @@
       try {
         await action();
       } catch (e) {
-        message(e.message);
+        message(e.message, b.closest('[role=tabpanel]')?.querySelector('[role=alert]')?.id);
       } finally {
         b.disabled = false;
       }
@@ -373,8 +373,8 @@
     $('user-filter').onsubmit = (e) => {
       e.preventDefault();
       userPage = 1;
-      message('');
-      Promise.all([users(), invites()]).catch((e) => message(e.message));
+      message('', 'accounts-message');
+      users().catch((e) => message(e.message, 'accounts-message'));
     };
     for (const [prefix, load, change] of [
       ['users', users, (d) => (userPage += d)],
@@ -386,12 +386,14 @@
       ])
         $(prefix + '-' + dir).onclick = () => {
           change(delta);
-          load().catch((e) => message(e.message));
+          const target = prefix === 'users' ? 'accounts-message' : 'invites-message';
+          message('', target);
+          load().catch((e) => message(e.message, target));
         };
     $('invite-form').onsubmit = async (e) => {
       e.preventDefault();
       e.submitter.disabled = true;
-      message('');
+      message('', 'invites-message');
       try {
         const r = await api.request('/api/admin/invites', {
           method: 'POST',
@@ -407,7 +409,7 @@
         invitePage = 1;
         await invites();
       } catch (error) {
-        message(error.message);
+        message(error.message, 'invites-message');
       } finally {
         e.submitter.disabled = false;
       }
@@ -417,10 +419,13 @@
         await navigator.clipboard.writeText($('invite-links').value);
         $('copy-invites').textContent = '已复制';
       } catch {
-        message('无法读取剪贴板，请选中链接手动复制。');
+        message('无法读取剪贴板，请选中链接手动复制。', 'invites-message');
       }
     };
-    await Promise.all([users(), invites()]);
+    await Promise.all([
+      users().catch((e) => message(e.message, 'accounts-message')),
+      invites().catch((e) => message(e.message, 'invites-message')),
+    ]);
   }
 })().catch((error) => {
   const p = document.getElementById('page-message');
