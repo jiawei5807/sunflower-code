@@ -50,30 +50,10 @@
             maxlength="128"
           />
         </div>
-        <div id="auth-mfa-fields" hidden>
-          <label for="auth-mfa-code">动态码或备用恢复码</label
-          ><input
-            id="auth-mfa-code"
-            autocomplete="one-time-code"
-            maxlength="80"
-            placeholder="验证器的 6 位动态码"
-          />
-          <p>使用备用恢复码登录后，该恢复码将失效。</p>
-        </div>
         <button id="auth-submit" class="primary" type="submit">登录</button>
       </form>
       <a id="auth-switch" href="/login" hidden>已有账号，前往登录 →</a>
       <form id="reset-form" hidden>
-        <div id="reset-recovery-fields">
-          <label for="reset-username">管理员账号</label
-          ><input id="reset-username" autocomplete="username" maxlength="32" /><label
-            for="reset-recovery"
-            >备用恢复码</label
-          ><input id="reset-recovery" autocomplete="off" maxlength="80" />
-        </div>
-        <p id="reset-recovery-hint">
-          仅管理员可使用绑定二次验证时保存的备用码恢复账号。恢复后会关闭二次验证，请重新绑定。普通用户请联系管理员获取重置链接。
-        </p>
         <label for="reset-new">新密码</label
         ><input
           id="reset-new"
@@ -108,9 +88,6 @@
       </div>
       <p id="auth-support-hint"></p>
       <p data-support>请联系邀请你的管理员。</p>
-      <a id="admin-recovery-link" class="action-link" href="/reset-password" hidden
-        >管理员账号恢复 →</a
-      >
     </dialog>
   </body>
 </html>

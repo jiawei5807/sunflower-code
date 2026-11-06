@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const password = 'Example-Password-123!';
-async function setup(t, bindings = {}) {
+async function setup(t, beforeSecurity) {
   let calls = 0;
   const mf = new Miniflare({
     modules: true,
@@ -18,8 +18,6 @@ async function setup(t, bindings = {}) {
       ADMIN_USERNAME: 'admin',
       ADMIN_PASSWORD: password,
       ACEDATA_TOKEN: 'private-test-token',
-      MFA_ENCRYPTION_KEY: 'ab'.repeat(32),
-      ...bindings,
     },
     serviceBindings: {
       ASSETS: (request) => {
@@ -36,10 +34,12 @@ async function setup(t, bindings = {}) {
   });
   t.after(() => mf.dispose());
   const db = await mf.getD1Database('DB');
-  for (const name of (await readdir(path.join(root, 'migrations'))).sort())
+  for (const name of (await readdir(path.join(root, 'migrations'))).sort()) {
+    if (name === '0002_account_security.sql' && beforeSecurity) await beforeSecurity(db);
     await db.exec(
       (await readFile(path.join(root, 'migrations', name), 'utf8')).replace(/\n/g, ' '),
     );
+  }
   const call = async (
     p,
     { method = 'GET', body, cookie = '', key, origin = 'https://site.test' } = {},
@@ -679,101 +679,6 @@ test('password resets require administrator reauthentication and are single-use,
   );
 });
 
-test('administrator MFA uses encrypted TOTP, prevents replay, revokes sessions, and has one-use recovery', async (t) => {
-  const { call, login, db } = await setup(t);
-  let cookie = await login('admin');
-  const { totp } = await import('../../cloudflare/lib/security.mjs');
-  // RFC 6238 SHA-1 test vector, reduced to the six digits used by authenticator apps.
-  assert.equal(await totp('GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ', 1), '287082');
-  const start = await call('/api/admin/mfa/setup', { method: 'POST', cookie, body: { password } });
-  assert.equal(start.status, 200);
-  const { secret } = await start.json();
-  const row = await db.prepare('SELECT * FROM admin_mfa').first();
-  assert.ok(!row.pending_secret.includes(secret));
-  assert.equal(
-    (
-      await call('/api/admin/mfa/enable', {
-        method: 'POST',
-        cookie,
-        body: { password, code: 'bad' },
-      })
-    ).status,
-    400,
-  );
-  const code = await totp(secret);
-  const enabled = await Promise.all(
-    [1, 2].map(() =>
-      call('/api/admin/mfa/enable', { method: 'POST', cookie, body: { password, code } }),
-    ),
-  );
-  assert.equal(enabled.filter((r) => r.status === 200).length, 1);
-  const { recoveryCodes } = await enabled.find((r) => r.status === 200).json();
-  assert.equal(recoveryCodes.length, 8);
-  assert.equal((await db.prepare('SELECT COUNT(*) n FROM mfa_recovery_codes').first()).n, 8);
-  assert.equal((await call('/api/auth/me', { cookie })).status, 401);
-  const signin = (code) =>
-    call('/api/auth/login', { method: 'POST', body: { username: 'admin', password, code } });
-  const missing = await signin();
-  assert.equal((await missing.json()).code, 'MFA_REQUIRED');
-  assert.equal(missing.headers.get('set-cookie'), null);
-  const replay = await signin(code);
-  assert.equal((await replay.json()).code, 'MFA_INVALID');
-  const signed = await signin(recoveryCodes[0]);
-  assert.equal(signed.status, 200);
-  cookie = signed.headers.get('set-cookie').split(';')[0];
-  assert.equal((await signin(recoveryCodes[0])).status, 400);
-  // Permit the current authenticator step after simulating the previous window.
-  await db.prepare('UPDATE admin_mfa SET last_step=-1').run();
-  const valid = await signin(await totp(secret));
-  assert.equal(valid.status, 200);
-  assert.equal(
-    (
-      await call('/api/admin/mfa/disable', {
-        method: 'POST',
-        cookie,
-        body: { password, code: 'bad' },
-      })
-    ).status,
-    400,
-  );
-  const disabled = await call('/api/admin/mfa/disable', {
-    method: 'POST',
-    cookie,
-    body: { password, code: recoveryCodes[1] },
-  });
-  assert.equal(disabled.status, 200);
-  assert.equal((await call('/api/auth/me', { cookie })).status, 401);
-  cookie = await login('admin');
-  const setupAgain = await (
-    await call('/api/admin/mfa/setup', { method: 'POST', cookie, body: { password } })
-  ).json();
-  const again = await call('/api/admin/mfa/enable', {
-    method: 'POST',
-    cookie,
-    body: { password, code: await totp(setupAgain.secret) },
-  });
-  assert.equal(again.status, 200);
-  const backup = (await again.json()).recoveryCodes[0];
-  const recover = () =>
-    call('/api/auth/reset', {
-      method: 'POST',
-      body: { username: 'admin', recoveryCode: backup, password: 'Recovered-Password-123!' },
-    });
-  const recovered = await Promise.all([recover(), recover()]);
-  assert.equal(recovered.filter((r) => r.status === 200).length, 1);
-  assert.equal((await db.prepare('SELECT COUNT(*) n FROM admin_mfa').first()).n, 0);
-  assert.equal((await recover()).status, 400);
-  assert.equal(
-    (
-      await call('/api/auth/login', {
-        method: 'POST',
-        body: { username: 'admin', password: 'Recovered-Password-123!' },
-      })
-    ).status,
-    200,
-  );
-});
-
 test('support settings are public read-only and history search stays scoped to the owner', async (t) => {
   const { call, login, db } = await setup(t),
     cookie = await login('admin');
@@ -825,7 +730,7 @@ test('support settings are public read-only and history search stays scoped to t
   );
 });
 
-test('MFA protects sensitive admin actions, expired setup fails, and user search cannot cross accounts', async (t) => {
+test('support configuration stays administrator-only and user search cannot cross accounts', async (t) => {
   const { call, login, db } = await setup(t);
   const cookie = await login('admin');
   const invites = await (
@@ -850,24 +755,16 @@ test('MFA protects sensitive admin actions, expired setup fails, and user search
     other = await login('other_user');
   const userId = (await db.prepare("SELECT id FROM users WHERE username='security_user'").first())
     .id;
-  for (const endpoint of [
-    '/api/admin/support',
-    '/api/admin/mfa/setup',
-    '/api/admin/mfa/enable',
-    '/api/admin/mfa/disable',
-  ]) {
-    assert.equal(
-      (
-        await call(endpoint, {
-          method: 'POST',
-          cookie: own,
-          body: { password, contact: 'forbidden' },
-        })
-      ).status,
-      403,
-    );
-  }
-  assert.equal((await call('/api/admin/mfa', { cookie: own })).status, 403);
+  assert.equal(
+    (
+      await call('/api/admin/support', {
+        method: 'POST',
+        cookie: own,
+        body: { contact: 'forbidden' },
+      })
+    ).status,
+    403,
+  );
   await call('/api/generate', {
     method: 'POST',
     cookie: own,
@@ -889,96 +786,117 @@ test('MFA protects sensitive admin actions, expired setup fails, and user search
       .total,
     1,
   );
-  const { totp } = await import('../../cloudflare/lib/security.mjs');
-  const start = async () =>
-    (await call('/api/admin/mfa/setup', { method: 'POST', cookie, body: { password } })).json();
-  const pending = await start();
-  await db.prepare('UPDATE admin_mfa SET pending_until=0').run();
-  assert.equal(
-    (
-      await call('/api/admin/mfa/enable', {
-        method: 'POST',
-        cookie,
-        body: { password, code: await totp(pending.secret) },
-      })
-    ).status,
-    400,
-  );
-  const current = await start();
-  const enabled = await call('/api/admin/mfa/enable', {
-    method: 'POST',
-    cookie,
-    body: { password, code: await totp(current.secret) },
-  });
-  assert.equal(enabled.status, 200);
-  const codes = (await enabled.json()).recoveryCodes;
-  const signed = await call('/api/auth/login', {
-    method: 'POST',
-    body: { username: 'admin', password, code: codes[0] },
-  });
-  assert.equal(signed.status, 200);
-  const secured = signed.headers.get('set-cookie').split(';')[0];
-  const resetPath = `/api/admin/users/${userId}/reset-password`;
-  assert.equal(
-    (await call(resetPath, { method: 'POST', cookie: secured, body: { password } })).status,
-    400,
-  );
-  assert.equal((await db.prepare('SELECT count(*) n FROM password_resets').first()).n, 0);
-  assert.equal(
-    (await call(resetPath, { method: 'POST', cookie: secured, body: { password, code: codes[1] } }))
-      .status,
-    200,
-  );
-  assert.equal(
-    (
-      await call('/api/auth/password', {
-        method: 'POST',
-        cookie: secured,
-        body: { current: password, password: 'Changed-Admin-123!' },
-      })
-    ).status,
-    400,
-  );
-  assert.equal(
-    (
-      await call('/api/auth/password', {
-        method: 'POST',
-        cookie: secured,
-        body: { current: password, password: 'Changed-Admin-123!', code: codes[2] },
-      })
-    ).status,
-    200,
-  );
-  assert.equal((await call('/api/auth/me', { cookie: secured })).status, 401);
-  // Lost/corrupted encrypted data must fail closed, while an offline backup still recovers access.
-  await db.prepare("UPDATE admin_mfa SET secret='unreadable-ciphertext'").run();
-  assert.equal(
-    (
-      await call('/api/auth/login', {
-        method: 'POST',
-        body: { username: 'admin', password: 'Changed-Admin-123!', code: '123456' },
-      })
-    ).status,
-    503,
-  );
-  assert.equal(
-    (
-      await call('/api/auth/login', {
-        method: 'POST',
-        body: { username: 'admin', password: 'Changed-Admin-123!', code: codes[3] },
-      })
-    ).status,
-    200,
-  );
 });
 
-test('MFA encryption key is optional until binding and absent keys cannot persist a seed', async (t) => {
-  const { call, login, db } = await setup(t, { MFA_ENCRYPTION_KEY: '' });
-  const cookie = await login('admin');
+test('account security migration preserves existing data and password-only admin access', async (t) => {
+  const { hashPassword, digest } = await import('../../cloudflare/lib/auth.mjs');
+  const id = crypto.randomUUID(),
+    ordinary = crypto.randomUUID(),
+    generationId = crypto.randomUUID();
+  const oldSession = '1'.repeat(64),
+    ordinarySession = '2'.repeat(64),
+    recovery = '3'.repeat(32);
+  const now = Date.now(),
+    originalHash = await hashPassword(password);
+  const { call, login, db } = await setup(t, async (db) => {
+    await db.batch([
+      db
+        .prepare(
+          "INSERT INTO users(id,username,password_hash,role,created_at) VALUES(?,'admin',?,'admin',?)",
+        )
+        .bind(id, originalHash, now),
+      db
+        .prepare(
+          "INSERT INTO users(id,username,password_hash,role,created_at) VALUES(?,'existing_user',?,'user',?)",
+        )
+        .bind(ordinary, originalHash, now),
+      db
+        .prepare('INSERT INTO sessions VALUES(?,?,?,?)')
+        .bind(await digest(oldSession), id, now, now + 600000),
+      db
+        .prepare('INSERT INTO sessions VALUES(?,?,?,?)')
+        .bind(await digest(ordinarySession), ordinary, now, now + 600000),
+      db
+        .prepare(
+          "INSERT INTO generations(id,user_id,request_key,payload_hash,original_url,source,state,created_at,completed_at) VALUES(?,?,'existing-record','test','https://example.com','link','ready',?,?)",
+        )
+        .bind(generationId, ordinary, now, now),
+    ]);
+  });
   assert.equal(
-    (await call('/api/admin/mfa/setup', { method: 'POST', cookie, body: { password } })).status,
-    503,
+    (
+      await db
+        .prepare(
+          "SELECT COUNT(*) n FROM sqlite_master WHERE type='table' AND name IN ('admin_mfa','mfa_recovery_codes')",
+        )
+        .first()
+    ).n,
+    0,
   );
-  assert.equal((await db.prepare('SELECT count(*) n FROM admin_mfa').first()).n, 0);
+  assert.equal((await db.prepare('SELECT COUNT(*) n FROM users').first()).n, 2);
+  assert.equal((await db.prepare('SELECT id FROM generations').first()).id, generationId);
+  assert.deepEqual(await (await call('/api/support')).json(), { contact: '', url: '' });
+  assert.equal(
+    (await call('/api/auth/me', { cookie: '__Host-sunflower=' + oldSession })).status,
+    200,
+  );
+  assert.equal(
+    (await call('/api/auth/me', { cookie: '__Host-sunflower=' + ordinarySession })).status,
+    200,
+  );
+  const cookie = await login('admin');
+  for (const path of [
+    '/api/admin/mfa',
+    '/api/admin/mfa/setup',
+    '/api/admin/mfa/enable',
+    '/api/admin/mfa/disable',
+  ]) {
+    assert.equal(
+      (
+        await call(path, {
+          cookie,
+          method: path === '/api/admin/mfa' ? 'GET' : 'POST',
+          body: path === '/api/admin/mfa' ? undefined : { password },
+        })
+      ).status,
+      404,
+    );
+  }
+  const denied = await call('/api/auth/reset', {
+    method: 'POST',
+    body: { username: 'admin', recoveryCode: recovery, password: 'New-Admin-Password!' },
+  });
+  assert.equal(denied.status, 400);
+  assert.equal(
+    (await db.prepare('SELECT password_hash FROM users WHERE id=?').bind(id).first()).password_hash,
+    originalHash,
+  );
   assert.equal((await call('/api/auth/me', { cookie })).status, 200);
+  const issue = await call(`/api/admin/users/${ordinary}/reset-password`, {
+    method: 'POST',
+    cookie,
+    body: { password },
+  });
+  assert.equal(issue.status, 200);
+  const token = new URLSearchParams(new URL((await issue.json()).url).hash.slice(1)).get('token');
+  assert.equal(
+    (
+      await call('/api/auth/reset', {
+        method: 'POST',
+        body: { token, password: 'New-User-Password!' },
+      })
+    ).status,
+    200,
+  );
+  assert.equal(
+    (
+      await call('/api/auth/password', {
+        method: 'POST',
+        cookie,
+        body: { current: password, password: 'Changed-Admin-Password!' },
+      })
+    ).status,
+    200,
+  );
+  assert.equal((await call('/api/auth/me', { cookie })).status, 401);
 });

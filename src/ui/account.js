@@ -70,7 +70,6 @@
           body: {
             username,
             password,
-            code: $('auth-mfa-code').value.trim(),
             ...(register ? { invite } : {}),
           },
         });
@@ -81,10 +80,6 @@
           $('auth-switch').textContent = '前往登录 →';
         } else location.assign('/');
       } catch (e) {
-        if (e.code === 'MFA_REQUIRED' || e.code === 'MFA_INVALID') {
-          $('auth-mfa-fields').hidden = false;
-          $('auth-mfa-code').focus();
-        }
         message(e.message);
       } finally {
         submit.disabled = false;
@@ -100,7 +95,6 @@
   }
   if ($('current-user')) $('current-user').textContent = user.username;
   if ($('admin-link')) $('admin-link').hidden = user.role !== 'admin';
-  if ($('password-mfa-fields')) $('password-mfa-fields').hidden = user.role !== 'admin';
   $('logout')?.addEventListener('click', async () => {
     try {
       await api.request('/api/auth/logout', { method: 'POST', body: {} });
@@ -121,7 +115,6 @@
         body: {
           current: $('password-current').value,
           password: $('password-new').value,
-          code: $('password-code').value.trim(),
         },
       });
       location.assign('/login');

@@ -1,5 +1,5 @@
 """Full account/product journeys against local workerd + D1 + R2."""
-import io,os,time,json,base64,hmac,hashlib,struct
+import io,os,time,json,base64
 from pathlib import Path
 import qrcode
 from playwright.sync_api import sync_playwright,expect
@@ -21,7 +21,7 @@ with sync_playwright() as p:
  expect(visitor.locator('[data-support]')).to_contain_text('sunflower_support <客服>')
  expect(visitor.locator('[data-support] a')).to_have_attribute('href','mailto:support@example.com')
  visitor.click('#auth-support-close');expect(visitor.locator('#support-open')).to_be_focused()
- visitor.click('#forgot-open');expect(visitor.locator('#admin-recovery-link')).to_be_visible();expect(visitor.locator('#auth-support-hint')).to_contain_text('密码重置链接')
+ visitor.click('#forgot-open');expect(visitor.locator('#admin-recovery-link')).to_have_count(0);expect(visitor.locator('#auth-support-hint')).to_contain_text('密码重置链接')
  visitor.keyboard.press('Escape');expect(visitor.locator('#auth-support-dialog')).not_to_be_visible()
  visitor.close()
  user=browser.new_page(viewport={'width':390,'height':844},reduced_motion='reduce');user.on('pageerror',lambda e:errors.append(str(e)))
@@ -134,27 +134,16 @@ with sync_playwright() as p:
  reset_link=admin.locator('#reset-link').input_value();assert '#token=' in reset_link
  admin.screenshot(path='test-results/reset-dialog-mobile.png',full_page=True)
  reset=browser.new_page();reset.goto(reset_link);expect(reset.locator('#reset-form')).to_be_visible();assert '#' not in reset.url
- expect(reset.locator('#reset-recovery-fields')).to_be_hidden()
  reset.fill('#reset-new','Browser-New-Password-2026!');reset.fill('#reset-confirm','Browser-New-Password-2026!');reset.locator('#reset-form button').click();expect(reset.locator('#auth-help')).to_contain_text('密码已重置')
  user.reload();expect(user).to_have_url(BASE+'/login');user.fill('#auth-username','browser_user');user.fill('#auth-password','Browser-New-Password-2026!');user.click('#auth-submit');expect(user.locator('#current-user')).to_have_text('browser_user')
- user.click('#password-open');expect(user.locator('#password-mfa-fields')).to_be_hidden();user.click('#password-close')
+ user.click('#password-open');expect(user.locator('#password-form input')).to_have_count(2);user.click('#password-close')
  admin.locator('#reset-dialog button').filter(has_text='关闭').click();reset.close()
- # Bind an authenticator using an independently calculated standard TOTP code.
- admin.fill('#mfa-password',PASSWORD);admin.locator('#mfa-setup button').click();expect(admin.locator('#mfa-bind')).to_be_visible()
- seed=base64.b32decode(admin.locator('#mfa-secret').inner_text())
- mac=hmac.new(seed,struct.pack('>Q',int(time.time())//30),hashlib.sha1).digest();offset=mac[-1]&15
- code=str((struct.unpack('>I',mac[offset:offset+4])[0]&0x7fffffff)%1000000).zfill(6)
- admin.fill('#mfa-code',code);admin.click('#mfa-enable');expect(admin.locator('#mfa-recovery-result')).to_be_visible()
- backups=admin.locator('#mfa-recovery-codes').input_value().splitlines();assert len(backups)==8
- with admin.expect_download() as download:admin.click('#mfa-save-codes')
- assert all(backup in Path(download.value.path()).read_text() for backup in backups)
- admin.locator('#mfa-recovery-result a').click();admin.fill('#auth-username','admin');admin.fill('#auth-password',PASSWORD);admin.click('#auth-submit');expect(admin.locator('#auth-mfa-fields')).to_be_visible()
- admin.fill('#auth-mfa-code',backups[0]);admin.click('#auth-submit');expect(admin.locator('#current-user')).to_have_text('admin');admin.click('#admin-link');expect(admin.locator('#mfa-status')).to_contain_text('剩余 7')
- # A backup recovery code also restores a forgotten administrator password.
- recover=browser.new_page(viewport={'width':390,'height':844});recover.goto(BASE+'/reset-password');expect(recover.locator('#reset-recovery-fields')).to_be_visible()
- recover.fill('#reset-username','admin');recover.fill('#reset-recovery',backups[1]);recover.fill('#reset-new','Recovered-Admin-2026!');recover.fill('#reset-confirm','Recovered-Admin-2026!');recover.locator('#reset-form button').click();expect(recover.locator('#auth-help')).to_contain_text('二次验证已关闭')
- admin.reload();expect(admin).to_have_url(BASE+'/login');admin.fill('#auth-username','admin');admin.fill('#auth-password','Recovered-Admin-2026!');admin.click('#auth-submit');expect(admin.locator('#current-user')).to_have_text('admin');admin.click('#admin-link');expect(admin.locator('#mfa-status')).to_have_text('未启用');expect(admin.locator('#support-contact')).to_have_value('微信：sunflower_support <客服>')
- recover.close()
+ # Removed verification routes and recovery controls must not remain on the pages.
+ expect(admin.locator('#mfa-setup')).to_have_count(0)
+ admin.locator('nav a[href="/"]').click();admin.click('#password-open')
+ admin.fill('#password-current',PASSWORD);admin.fill('#password-new','Changed-Admin-2026!');admin.locator('#password-form button[type=submit]').click()
+ expect(admin).to_have_url(BASE+'/login');admin.fill('#auth-username','admin');admin.fill('#auth-password','Changed-Admin-2026!');admin.click('#auth-submit');expect(admin.locator('#current-user')).to_have_text('admin')
+ visitor=browser.new_page();visitor.goto(BASE+'/reset-password');expect(visitor.locator('#reset-form')).to_be_hidden();expect(visitor.locator('#auth-help')).to_contain_text('管理员提供的重置链接');visitor.close()
  assert not errors,errors
  browser.close()
-print('PASS: admin initialization, invite/register/login, real QR, R2 history PNG/SVG/avatars, counts, disable/re-enable, mobile/desktop, support, search, one-time password reset, MFA and backup recovery')
+print('PASS: admin initialization, invite/register/login, real QR, R2 history PNG/SVG/avatars, counts, disable/re-enable, mobile/desktop, support, search, one-time password reset, administrator password change')

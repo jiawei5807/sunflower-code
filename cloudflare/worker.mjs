@@ -16,7 +16,7 @@ import {
   limit,
 } from './lib/auth.mjs';
 import { generate, historyItem, validateAppearance } from './lib/generation.mjs';
-import { publicSecurity, adminSecurity, verifySecondFactor } from './lib/security.mjs';
+import { publicSecurity, adminSecurity } from './lib/security.mjs';
 const codec = globalThis.SunflowerCode;
 const audit = (db, user, action, target) =>
   db
@@ -60,7 +60,6 @@ export function createWorker() {
             );
             if (!user || !valid || user.status !== 'active')
               throw new HttpError(401, '账号或密码错误，或账号已停用。');
-            if (user.role === 'admin') await verifySecondFactor(env, user, b.code);
             const session = await newSession(db, user, request);
             return json({ user: session.user }, 200, { 'set-cookie': session.cookie });
           }
@@ -126,7 +125,6 @@ export function createWorker() {
               !(await verifyPassword(b.current, user.password_hash))
             )
               throw new HttpError(400, '当前密码不正确。');
-            if (user.role === 'admin') await verifySecondFactor(env, user, b.code);
             const updated = await db.batch([
               db
                 .prepare(

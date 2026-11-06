@@ -312,8 +312,7 @@ td button {
   font-size: 13px;
 }
 #reset-form label,
-#reset-dialog label,
-#mfa-bind label {
+#reset-dialog label {
   display: block;
   margin: 16px 0 8px;
   font-size: 13px;
@@ -327,23 +326,8 @@ td button {
   line-height: 1.8;
   overflow-wrap: anywhere;
 }
-#reset-link,
-#mfa-recovery-codes {
+#reset-link {
   margin: 16px 0;
-}
-.secret-value {
-  display: block;
-  padding: 16px;
-  background: #eff8ff;
-  overflow-wrap: anywhere;
-  font-size: 16px;
-  user-select: all;
-}
-#mfa-bind {
-  max-width: 520px;
-}
-#mfa-bind button {
-  margin: 14px 0;
 }
 .history-url.collapsed {
   display: -webkit-box;
