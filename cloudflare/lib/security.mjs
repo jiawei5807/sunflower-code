@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 import { HttpError, json, readJSON } from './http.mjs';
+import { support, supportImage, saveSupport } from './support.mjs';
 import {
   digest,
   randomToken,
@@ -22,13 +23,11 @@ async function checkPassword(db, user, value) {
   )
     throw new HttpError(400, '当前密码不正确。');
 }
-export async function support(db) {
-  const row = await db.prepare("SELECT value FROM site_settings WHERE key='support'").first();
-  return row ? JSON.parse(row.value) : { contact: '', url: '' };
-}
 export async function publicSecurity(path, request, env) {
   const db = env.DB;
-  if (path === '/api/support' && request.method === 'GET') return json(await support(db));
+  if (path === '/api/support' && request.method === 'GET') return json(await support(env.IMAGES));
+  if (path === '/api/support/image' && ['GET', 'HEAD'].includes(request.method))
+    return supportImage(request, env.IMAGES);
   if (path !== '/api/auth/reset' || request.method !== 'POST') return null;
   const b = await readJSON(request, 4096),
     now = Date.now();
@@ -68,34 +67,7 @@ export async function publicSecurity(path, request, env) {
 export async function adminSecurity(path, request, env, user) {
   const db = env.DB,
     method = request.method;
-  if (path === '/api/admin/support' && method === 'POST') {
-    const b = await readJSON(request, 4096),
-      contact = typeof b.contact === 'string' ? b.contact.trim() : '',
-      url = typeof b.url === 'string' ? b.url.trim() : '';
-    if (contact.length > 200 || url.length > 500) throw new HttpError(400, '联系方式过长。');
-    if (url) {
-      try {
-        const parsed = new URL(url);
-        if (
-          !['http:', 'https:', 'mailto:'].includes(parsed.protocol) ||
-          parsed.username ||
-          parsed.password
-        )
-          throw Error();
-      } catch {
-        throw new HttpError(400, '客服链接需为 HTTP/HTTPS 或 mailto 地址。');
-      }
-    }
-    await db.batch([
-      db
-        .prepare(
-          "INSERT INTO site_settings VALUES('support',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
-        )
-        .bind(JSON.stringify({ contact, url })),
-      audit(db, user.id, 'support.update', 'support'),
-    ]);
-    return json({ ok: true });
-  }
+  if (path === '/api/admin/support' && method === 'POST') return saveSupport(request, env, user);
   const reset = path.match(/^\/api\/admin\/users\/([a-f0-9-]{36})\/reset-password$/);
   if (reset && method === 'POST') {
     const b = await readJSON(request, 4096);

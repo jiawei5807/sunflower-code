@@ -104,6 +104,7 @@
     }
   });
   $('password-open')?.addEventListener('click', () => $('password-dialog').showModal());
+  if ($('password-open')) $('password-open').disabled = false;
   $('password-close')?.addEventListener('click', () => $('password-dialog').close());
   $('password-form')?.addEventListener('submit', async (e) => {
     e.preventDefault();

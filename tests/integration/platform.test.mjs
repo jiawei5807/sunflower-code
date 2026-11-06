@@ -682,7 +682,7 @@ test('password resets require administrator reauthentication and are single-use,
 test('support settings are public read-only and history search stays scoped to the owner', async (t) => {
   const { call, login, db } = await setup(t),
     cookie = await login('admin');
-  assert.deepEqual(await (await call('/api/support')).json(), { contact: '', url: '' });
+  assert.deepEqual(await (await call('/api/support')).json(), { imageUrl: '' });
   assert.equal(
     (await call('/api/admin/support', { method: 'POST', body: { contact: 'x' } })).status,
     401,
@@ -702,12 +702,15 @@ test('support settings are public read-only and history search stays scoped to t
       await call('/api/admin/support', {
         method: 'POST',
         cookie,
-        body: { contact: '微信：support', url: 'mailto:support@example.com' },
+        body: {
+          image:
+            'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j8ZkAAAAASUVORK5CYII=',
+        },
       })
     ).status,
     200,
   );
-  assert.equal((await (await call('/api/support')).json()).contact, '微信：support');
+  assert.match((await (await call('/api/support')).json()).imageUrl, /^\/api\/support\/image\?v=/);
   await call('/api/generate', {
     method: 'POST',
     cookie,
@@ -835,7 +838,7 @@ test('account security migration preserves existing data and password-only admin
   );
   assert.equal((await db.prepare('SELECT COUNT(*) n FROM users').first()).n, 2);
   assert.equal((await db.prepare('SELECT id FROM generations').first()).id, generationId);
-  assert.deepEqual(await (await call('/api/support')).json(), { contact: '', url: '' });
+  assert.deepEqual(await (await call('/api/support')).json(), { imageUrl: '' });
   assert.equal(
     (await call('/api/auth/me', { cookie: '__Host-sunflower=' + oldSession })).status,
     200,
@@ -899,4 +902,84 @@ test('account security migration preserves existing data and password-only admin
     200,
   );
   assert.equal((await call('/api/auth/me', { cookie })).status, 401);
+});
+
+test('support image can be published and replaced only by admins, stays separate from history, and can be removed', async (t) => {
+  const { call, login, db, mf } = await setup(t),
+    cookie = await login('admin');
+  const images = await mf.getR2Bucket('IMAGES');
+  const image =
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j8ZkAAAAASUVORK5CYII=';
+  assert.equal((await call('/api/support/image')).status, 404);
+  assert.equal((await call('/api/admin/support', { method: 'POST', body: { image } })).status, 401);
+  assert.equal(
+    (
+      await call('/api/admin/support', {
+        method: 'POST',
+        cookie,
+        origin: 'https://evil.test',
+        body: { image },
+      })
+    ).status,
+    403,
+  );
+  await db
+    .prepare("INSERT INTO site_settings VALUES('support',?)")
+    .bind(JSON.stringify({ contact: 'old contact', url: 'mailto:old@example.com' }))
+    .run();
+  assert.deepEqual(await (await call('/api/support')).json(), { imageUrl: '' });
+  const published = await call('/api/admin/support', { method: 'POST', cookie, body: { image } });
+  assert.equal(published.status, 200);
+  const first = (await published.json()).imageUrl;
+  const response = await call(first);
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('content-type'), 'image/png');
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+  assert.deepEqual(
+    Buffer.from(await response.arrayBuffer()),
+    Buffer.from(image.split(',')[1], 'base64'),
+  );
+  for (const bad of [
+    'data:image/svg+xml;base64,PHN2Zy8+',
+    'data:image/png;base64,YmFk',
+    'https://evil.test/image.png',
+  ]) {
+    assert.equal(
+      (await call('/api/admin/support', { method: 'POST', cookie, body: { image: bad } })).status,
+      400,
+    );
+    assert.equal((await (await call('/api/support')).json()).imageUrl, first);
+  }
+  assert.equal(
+    (
+      await call('/api/admin/support', {
+        method: 'POST',
+        cookie,
+        body: { image: 'data:image/png;base64,' + 'a'.repeat(2800000) },
+      })
+    ).status,
+    413,
+  );
+  const secondImage =
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAIAAACQd1PeAAAADElEQVR4nGNgYGAAAAAEAAH2FzhVAAAAAElFTkSuQmCC';
+  assert.equal(
+    (await call('/api/admin/support', { method: 'POST', cookie, body: { image: secondImage } }))
+      .status,
+    200,
+  );
+  const second = (await (await call('/api/support')).json()).imageUrl;
+  assert.notEqual(first, second);
+  assert.equal((await images.list({ prefix: 'site/' })).objects.length, 1);
+  assert.equal((await db.prepare('SELECT COUNT(*) n FROM generations').first()).n, 0);
+  assert.equal(
+    (await call('/api/support/image?key=users/private.svg')).headers.get('content-type'),
+    'image/png',
+  );
+  assert.equal(
+    (await call('/api/admin/support', { method: 'POST', cookie, body: { image: null } })).status,
+    200,
+  );
+  assert.deepEqual(await (await call('/api/support')).json(), { imageUrl: '' });
+  assert.equal((await call('/api/support/image')).status, 404);
+  assert.equal((await images.list({ prefix: 'site/' })).objects.length, 0);
 });

@@ -16,24 +16,42 @@ with sync_playwright() as p:
  admin.fill('#user-query','admin');admin.click('#admin-tab-invites');expect(admin.locator('#users-table')).to_be_hidden()
  admin.fill('#invite-count','3');admin.fill('#invite-note','browser test');admin.locator('#invite-form button[type=submit]').click();expect(admin.locator('#invite-result')).to_be_visible()
  links=admin.locator('#invite-links').input_value().splitlines();assert len(links)==3
- admin.click('#admin-tab-support');admin.fill('#support-contact','contact draft');admin.click('#admin-tab-invites')
- expect(admin.locator('#invite-links')).to_have_value('\n'.join(links));expect(admin.locator('#invite-note')).to_have_value('browser test')
- admin.click('#admin-tab-accounts');expect(admin.locator('#user-query')).to_have_value('admin');admin.fill('#user-query','');admin.click('#admin-tab-support');expect(admin.locator('#support-contact')).to_have_value('contact draft')
- admin.fill('#support-contact','微信：sunflower_support <客服>');admin.fill('#support-url','mailto:support@example.com');admin.locator('#support-form button').click();expect(admin.locator('#security-message')).to_contain_text('已保存')
- admin.reload();expect(admin.get_by_role('tab',name='联系支持')).to_have_attribute('aria-selected','true');expect(admin.locator('#support-contact')).to_have_value('微信：sunflower_support <客服>')
+ admin.click('#admin-tab-support')
+ support_buffer=io.BytesIO();qrcode.make('https://example.com/support').save(support_buffer,format='PNG')
+ support_file={'name':'support.png','mimeType':'image/png','buffer':support_buffer.getvalue()}
+ admin.set_input_files('#support-file',support_file);expect(admin.locator('#support-save')).to_be_enabled();expect(admin.locator('#support-preview')).to_be_visible()
+ admin.click('#admin-tab-invites');expect(admin.locator('#invite-links')).to_have_value('\n'.join(links));expect(admin.locator('#invite-note')).to_have_value('browser test')
+ admin.click('#admin-tab-accounts');expect(admin.locator('#user-query')).to_have_value('admin');admin.fill('#user-query','');admin.click('#admin-tab-support');expect(admin.locator('#support-save')).to_be_enabled()
+ admin.click('#support-save');expect(admin.locator('#security-message')).to_contain_text('已保存');expect(admin.locator('#support-save')).to_be_disabled()
+ admin.reload();expect(admin.get_by_role('tab',name='联系支持')).to_have_attribute('aria-selected','true');expect(admin.locator('#support-preview')).to_be_visible();admin.wait_for_function("document.getElementById('support-preview').naturalWidth>0")
  admin.locator('#admin-tab-support').focus();admin.keyboard.press('Home');expect(admin.locator('#admin-tab-accounts')).to_be_focused()
  admin.keyboard.press('ArrowLeft');expect(admin.locator('#admin-tab-support')).to_be_focused();admin.keyboard.press('ArrowRight');expect(admin.locator('#admin-tab-accounts')).to_be_focused()
  admin.click('#admin-tab-invites');admin.click('#admin-tab-support');admin.go_back();expect(admin.locator('#admin-tab-invites')).to_have_attribute('aria-selected','true');admin.go_forward();expect(admin.locator('#admin-tab-support')).to_have_attribute('aria-selected','true')
  admin.click('#admin-tab-accounts')
  visitor=browser.new_page(viewport={'width':390,'height':844});visitor.goto(BASE+'/login')
- expect(visitor.locator('details')).to_have_count(0);expect(visitor.locator('[data-support]')).to_be_hidden()
+ expect(visitor.locator('details')).to_have_count(0);expect(visitor.locator('#auth-support-image')).to_be_hidden()
  Path('test-results').mkdir(exist_ok=True);visitor.screenshot(path='test-results/login-mobile.png',full_page=True)
  visitor.click('#support-open');expect(visitor.locator('#auth-support-dialog')).to_be_visible()
- expect(visitor.locator('[data-support]')).to_contain_text('sunflower_support <客服>')
- expect(visitor.locator('[data-support] a')).to_have_attribute('href','mailto:support@example.com')
+ expect(visitor.locator('#auth-support-image')).to_be_visible();visitor.wait_for_function("document.getElementById('auth-support-image').naturalWidth>0")
+ expect(visitor.locator('#auth-support-hint')).to_be_hidden();expect(visitor.locator('#auth-support-empty')).to_be_hidden()
+ visitor.screenshot(path='test-results/support-image-mobile.png',full_page=True)
  visitor.click('#auth-support-close');expect(visitor.locator('#support-open')).to_be_focused()
  visitor.click('#forgot-open');expect(visitor.locator('#admin-recovery-link')).to_have_count(0);expect(visitor.locator('#auth-support-hint')).to_contain_text('密码重置链接')
  visitor.keyboard.press('Escape');expect(visitor.locator('#auth-support-dialog')).not_to_be_visible()
+ # Replacing a draft does not publish before save; server failure retains the saved image.
+ admin.click('#admin-tab-support');old_image=admin.locator('#support-preview').get_attribute('src')
+ replacement=io.BytesIO();qrcode.make('https://example.com/new-support').save(replacement,format='PNG')
+ admin.set_input_files('#support-file',{'name':'new.png','mimeType':'image/png','buffer':replacement.getvalue()});expect(admin.locator('#support-save')).to_be_enabled()
+ admin.route('**/api/admin/support',lambda route:route.fulfill(status=503,content_type='application/json',body='{"error":"save failed"}'))
+ admin.click('#support-save');expect(admin.locator('#security-message')).to_have_text('save failed');expect(admin.locator('#support-save')).to_be_enabled()
+ visitor.click('#support-open');expect(visitor.locator('#auth-support-image')).to_have_attribute('src',old_image);visitor.click('#auth-support-close')
+ admin.unroute('**/api/admin/support');admin.click('#support-save');expect(admin.locator('#security-message')).to_contain_text('已保存');new_image=admin.locator('#support-preview').get_attribute('src');assert new_image!=old_image
+ visitor.click('#support-open');expect(visitor.locator('#auth-support-image')).to_have_attribute('src',new_image);expect(visitor.locator('#auth-support-image')).to_be_visible();visitor.click('#auth-support-close')
+ # Confirm removal and default help for an unconfigured site.
+ admin.once('dialog',lambda d:d.accept());admin.click('#support-remove');expect(admin.locator('#security-message')).to_contain_text('已移除');expect(admin.locator('#support-preview')).to_be_hidden()
+ visitor.click('#support-open');expect(visitor.locator('#auth-support-image')).to_be_hidden();expect(visitor.locator('#auth-support-empty')).to_contain_text('邀请你的管理员');visitor.click('#auth-support-close')
+ admin.set_input_files('#support-file',support_file);expect(admin.locator('#support-save')).to_be_enabled();admin.click('#support-save');expect(admin.locator('#security-message')).to_contain_text('已保存')
+ admin.click('#admin-tab-accounts')
  visitor.close()
  user=browser.new_page(viewport={'width':390,'height':844},reduced_motion='reduce');user.on('pageerror',lambda e:errors.append(str(e)))
  external=[];external_status=[200];external_url=['https://surl.id/TestCode12'];external_abort=[False];external_hold=[False];held=[]
@@ -169,10 +187,17 @@ with sync_playwright() as p:
  admin.locator('#reset-dialog button').filter(has_text='关闭').click();reset.close()
  # Removed verification routes and recovery controls must not remain on the pages.
  expect(admin.locator('#mfa-setup')).to_have_count(0)
- admin.locator('nav a[href="/"]').click();admin.click('#password-open')
+ pending_identity=[]
+ admin.route('**/api/auth/me',lambda route:pending_identity.append(route))
+ admin.locator('nav a[href="/"]').click();expect(admin.locator('#password-open')).to_be_disabled()
+ for _ in range(100):
+  if pending_identity:break
+  admin.wait_for_timeout(20)
+ assert pending_identity
+ pending_identity[0].continue_();admin.unroute('**/api/auth/me');expect(admin.locator('#password-open')).to_be_enabled();admin.click('#password-open');expect(admin.locator('#password-dialog')).to_be_visible()
  admin.fill('#password-current',PASSWORD);admin.fill('#password-new','Changed-Admin-2026!');admin.locator('#password-form button[type=submit]').click()
  expect(admin).to_have_url(BASE+'/login');admin.fill('#auth-username','admin');admin.fill('#auth-password','Changed-Admin-2026!');admin.click('#auth-submit');expect(admin.locator('#current-user')).to_have_text('admin')
  visitor=browser.new_page();visitor.goto(BASE+'/reset-password');expect(visitor.locator('#reset-form')).to_be_hidden();expect(visitor.locator('#auth-help')).to_contain_text('管理员提供的重置链接');visitor.close()
  assert not errors,errors
  browser.close()
-print('PASS: admin initialization, invite/register/login, real QR, R2 history PNG/SVG/avatars, counts, disable/re-enable, mobile/desktop, support, search, one-time password reset, administrator password change, admin tabs/drafts/navigation/error isolation')
+print('PASS: admin initialization, invite/register/login, real QR, R2 history PNG/SVG/avatars, counts, disable/re-enable, mobile/desktop, support image upload/replace/remove, search, one-time password reset, administrator password change, admin tabs/drafts/navigation/error isolation')

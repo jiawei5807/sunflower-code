@@ -4,27 +4,49 @@ globalThis.AppSecurity = {
   async publicHelp() {
     const $ = (id) => document.getElementById(id),
       dialog = $('auth-support-dialog');
-    const showHelp = (forgot) => {
+    let request = 0;
+    const showHelp = async (forgot) => {
+      const current = ++request;
       $('auth-support-title').textContent = forgot ? '找回密码' : '联系支持';
-      $('auth-support-hint').textContent = forgot
-        ? '联系管理员获取密码重置链接。'
-        : '获取邀请或使用帮助，请联系管理员。';
+      $('auth-support-hint').textContent = '联系管理员获取密码重置链接。';
+      $('auth-support-hint').hidden = !forgot;
+      const image = $('auth-support-image'),
+        empty = $('auth-support-empty');
+      image.hidden = true;
+      image.removeAttribute('src');
+      empty.hidden = false;
+      empty.textContent = '正在加载…';
       dialog.showModal();
+      try {
+        const data = await AppAPI.request('/api/support');
+        if (current !== request) return;
+        if (!data.imageUrl) {
+          empty.textContent = '请联系邀请你的管理员。';
+          return;
+        }
+        image.onload = () => {
+          if (current === request) {
+            image.hidden = false;
+            empty.hidden = true;
+          }
+        };
+        image.onerror = () => {
+          if (current === request) {
+            image.hidden = true;
+            empty.hidden = false;
+            empty.textContent = '图片加载失败，请关闭后重试。';
+          }
+        };
+        image.src = data.imageUrl;
+      } catch {
+        if (current === request) empty.textContent = '联系图片加载失败，请稍后重试。';
+      }
     };
     $('forgot-open').onclick = () => showHelp(true);
     $('support-open').onclick = () => showHelp(false);
     $('auth-support-close').onclick = () => dialog.close();
-    const data = await AppAPI.request('/api/support');
-    document.querySelectorAll('[data-support]').forEach((node) => {
-      node.textContent = data.contact || '请联系邀请你的管理员。';
-      if (data.url) {
-        const a = document.createElement('a');
-        a.href = data.url;
-        a.textContent = '联系支持';
-        a.target = '_blank';
-        a.rel = 'noopener noreferrer';
-        node.append(document.createElement('br'), a);
-      }
+    dialog.addEventListener('close', () => {
+      request++;
     });
   },
   async resetPage() {
@@ -71,24 +93,127 @@ globalThis.AppSecurity = {
       show = (text) => {
         $('security-message').textContent = text;
       };
-    const contact = await AppAPI.request('/api/support');
-    $('support-contact').value = contact.contact;
-    $('support-url').value = contact.url;
+    let draft = null,
+      saved = '',
+      previewUrl = '',
+      revision = 0,
+      busy = false;
+    const preview = (url) => {
+      $('support-preview').hidden = !url;
+      if (url) $('support-preview').src = url;
+      else $('support-preview').removeAttribute('src');
+      $('support-placeholder').textContent = url ? '点击更换图片' : '＋ 选择联系图片';
+      $('support-remove').hidden = !url;
+    };
+    const release = () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      previewUrl = '';
+    };
+    const controls = () => {
+      $('support-choose').disabled = busy;
+      $('support-file').disabled = busy;
+      $('support-save').disabled = busy || !draft;
+      $('support-remove').disabled = busy;
+    };
+    const data = await AppAPI.request('/api/support');
+    saved = data.imageUrl;
+    preview(saved);
+    controls();
+    $('support-choose').onclick = () => $('support-file').click();
+    $('support-file').onchange = async () => {
+      const file = $('support-file').files[0];
+      $('support-file').value = '';
+      if (!file || busy) return;
+      const current = ++revision;
+      let source = '',
+        canvas;
+      busy = true;
+      controls();
+      show('正在处理图片…');
+      try {
+        if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type))
+          throw Error('请选择 PNG、JPG 或 WebP 图片。');
+        if (file.size > 10 * 1024 * 1024) throw Error('图片超过 10 MB，请压缩后重试。');
+        source = URL.createObjectURL(file);
+        const image = new Image();
+        image.src = source;
+        await image.decode();
+        if (!image.naturalWidth || image.naturalWidth * image.naturalHeight > 40000000)
+          throw Error('图片尺寸过大，请压缩后重试。');
+        const scale = Math.min(1, 1600 / Math.max(image.naturalWidth, image.naturalHeight));
+        canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+        canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+        const context = canvas.getContext('2d');
+        context.fillStyle = '#fff';
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+        if (!blob || blob.size > 2 * 1024 * 1024)
+          throw Error('处理后的图片超过 2 MB，请压缩后重试。');
+        if (current !== revision) return;
+        draft = canvas.toDataURL('image/png');
+        release();
+        previewUrl = URL.createObjectURL(blob);
+        preview(previewUrl);
+        show('预览已更新，保存后生效。');
+      } catch (error) {
+        if (current === revision)
+          show(error.name === 'EncodingError' ? '图片无法读取，请更换图片。' : error.message);
+      } finally {
+        if (source) URL.revokeObjectURL(source);
+        if (canvas) canvas.width = canvas.height = 1;
+        if (current === revision) {
+          busy = false;
+          controls();
+        }
+      }
+    };
     $('support-form').onsubmit = async (event) => {
       event.preventDefault();
-      event.submitter.disabled = true;
+      if (!draft || busy) return;
+      busy = true;
+      controls();
+      show('正在保存…');
       try {
-        await AppAPI.request('/api/admin/support', {
+        const result = await AppAPI.request('/api/admin/support', {
           method: 'POST',
-          body: { contact: $('support-contact').value, url: $('support-url').value },
+          body: { image: draft },
         });
-        show('联系方式已保存，登录页已同步。');
+        saved = result.imageUrl;
+        draft = null;
+        release();
+        preview(saved);
+        show('图片已保存。');
       } catch (error) {
         show(error.message);
       } finally {
-        event.submitter.disabled = false;
+        busy = false;
+        controls();
       }
     };
+    $('support-remove').onclick = async () => {
+      if (busy || !confirm('移除后，用户将看不到联系图片。继续？')) return;
+      busy = true;
+      controls();
+      try {
+        await AppAPI.request('/api/admin/support', { method: 'POST', body: { image: null } });
+        saved = '';
+        draft = null;
+        release();
+        preview('');
+        show('图片已移除。');
+      } catch (error) {
+        show(error.message);
+      } finally {
+        busy = false;
+        controls();
+      }
+    };
+    window.addEventListener('pagehide', () => {
+      revision++;
+      release();
+    });
   },
   resetDialog(user) {
     const dialog = document.getElementById('reset-dialog');
