@@ -41,16 +41,29 @@
       const canvas = document.createElement('canvas'),
         context = canvas.getContext('2d', { willReadFrequently: true });
       try {
-        // Try a smaller image first, then retain more detail for dense codes.
-        for (const edge of new Set([
-          Math.min(1200, Math.max(width, height)),
-          Math.min(2400, Math.max(width, height)),
-        ])) {
+        const longest = Math.max(width, height),
+          first = Math.min(1200, longest);
+        // Rounded or separated modules can confuse local thresholding at one scale.
+        // Keep the original fast path, then retry bounded sizes without blurring the gaps.
+        const attempts = [
+          [first, true],
+          [Math.min(2400, longest), true],
+          [Math.round(first * 0.875), false],
+          [Math.round(first * 0.75), false],
+          [Math.round(first * 0.5), false],
+        ];
+        if (longest < 600) attempts.push([longest * 2, false]);
+        const tried = new Set();
+        for (const [edge, smoothing] of attempts) {
+          const key = edge + ':' + smoothing;
+          if (tried.has(key)) continue;
+          tried.add(key);
           await new Promise((resolve) => setTimeout(resolve, 0));
           check(signal);
-          const scale = edge / Math.max(width, height);
+          const scale = edge / longest;
           canvas.width = Math.max(1, Math.round(width * scale));
           canvas.height = Math.max(1, Math.round(height * scale));
+          context.imageSmoothingEnabled = smoothing;
           context.fillStyle = '#fff';
           context.fillRect(0, 0, canvas.width, canvas.height);
           context.drawImage(image, 0, 0, canvas.width, canvas.height);
