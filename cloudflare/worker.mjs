@@ -16,6 +16,7 @@ import {
   limit,
 } from './lib/auth.mjs';
 import { generate, historyItem, validateAppearance } from './lib/generation.mjs';
+import { publicSecurity, adminSecurity, verifySecondFactor } from './lib/security.mjs';
 const codec = globalThis.SunflowerCode;
 const audit = (db, user, action, target) =>
   db
@@ -34,6 +35,8 @@ export function createWorker() {
           if (!['GET', 'HEAD'].includes(method)) sameOrigin(request);
           const db = env.DB,
             now = Date.now();
+          const publicResult = await publicSecurity(path, request, env);
+          if (publicResult) return publicResult;
           if (path === '/api/auth/login' && method === 'POST') {
             const b = await readJSON(request, 4096),
               name = username(b.username);
@@ -57,6 +60,7 @@ export function createWorker() {
             );
             if (!user || !valid || user.status !== 'active')
               throw new HttpError(401, '账号或密码错误，或账号已停用。');
+            if (user.role === 'admin') await verifySecondFactor(env, user, b.code);
             const session = await newSession(db, user, request);
             return json({ user: session.user }, 200, { 'set-cookie': session.cookie });
           }
@@ -108,6 +112,10 @@ export function createWorker() {
             return json({ ok: true }, 200, { 'set-cookie': sessionCookie(request, '', true) });
           }
           const user = await requireUser(request, db, path.startsWith('/api/admin/'));
+          if (path.startsWith('/api/admin/')) {
+            const result = await adminSecurity(path, request, env, user);
+            if (result) return result;
+          }
           if (path === '/api/auth/password' && method === 'POST') {
             const b = await readJSON(request, 4096);
             password(b.password);
@@ -118,13 +126,18 @@ export function createWorker() {
               !(await verifyPassword(b.current, user.password_hash))
             )
               throw new HttpError(400, '当前密码不正确。');
-            await db.batch([
+            if (user.role === 'admin') await verifySecondFactor(env, user, b.code);
+            const updated = await db.batch([
               db
-                .prepare('UPDATE users SET password_hash=? WHERE id=?')
-                .bind(await hashPassword(b.password), user.id),
+                .prepare(
+                  'UPDATE users SET password_hash=?,security_version=security_version+1 WHERE id=? AND security_version=?',
+                )
+                .bind(await hashPassword(b.password), user.id, user.security_version),
               db.prepare('DELETE FROM sessions WHERE user_id=?').bind(user.id),
               audit(db, user, 'password.change', user.id),
             ]);
+            if (!updated[0].meta.changes)
+              throw new HttpError(409, '账号安全设置已变更，请重新登录。');
             return json({ message: '密码已更新，请重新登录。' }, 200, {
               'set-cookie': sessionCookie(request, '', true),
             });
@@ -260,7 +273,9 @@ export function createWorker() {
             if (!target) throw new HttpError(404, '账号不存在。');
             if (target.role === 'admin') throw new HttpError(400, '不能停用管理员。');
             await db.batch([
-              db.prepare('UPDATE users SET status=? WHERE id=?').bind(b.status, target.id),
+              db
+                .prepare('UPDATE users SET status=?,security_version=security_version+1 WHERE id=?')
+                .bind(b.status, target.id),
               db.prepare('DELETE FROM sessions WHERE user_id=?').bind(target.id),
               audit(db, user, 'user.' + b.status, target.id),
             ]);
@@ -333,9 +348,9 @@ export function createWorker() {
           }
           throw new HttpError(404, '接口不存在。');
         }
-        const authPages = ['/login', '/register', '/auth.html'];
+        const authPages = ['/login', '/register', '/reset-password', '/auth.html'];
         const publicAsset =
-          /^\/src\/(styles\/|services\/qr-reader.js|ui\/(account|api)\.js)/.test(path) ||
+          /^\/src\/(styles\/|services\/qr-reader.js|ui\/(account|api|security)\.js)/.test(path) ||
           path.startsWith('/vendor/');
         if (authPages.includes(path)) return asset(env, request, '/auth.html');
         if (!env.DB || !env.IMAGES)
@@ -366,15 +381,18 @@ export function createWorker() {
 }
 async function listHistory(db, ownerId, url) {
   const page = pageNumber(url);
+  const query = (url.searchParams.get('q') || '').trim().slice(0, 200);
   const rows = await db
     .prepare(
-      "SELECT * FROM generations WHERE user_id=? AND state='ready' ORDER BY created_at DESC,id DESC LIMIT 20 OFFSET ?",
+      "SELECT * FROM generations WHERE user_id=? AND state='ready' AND instr(lower(original_url),lower(?))>0 ORDER BY created_at DESC,id DESC LIMIT 20 OFFSET ?",
     )
-    .bind(ownerId, (page - 1) * 20)
+    .bind(ownerId, query, (page - 1) * 20)
     .all();
   const count = await db
-    .prepare("SELECT COUNT(*) count FROM generations WHERE user_id=? AND state='ready'")
-    .bind(ownerId)
+    .prepare(
+      "SELECT COUNT(*) count FROM generations WHERE user_id=? AND state='ready' AND instr(lower(original_url),lower(?))>0",
+    )
+    .bind(ownerId, query)
     .first();
   return { items: rows.results.map(historyItem), total: count.count, page };
 }

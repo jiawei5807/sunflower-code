@@ -1,5 +1,5 @@
 """Full account/product journeys against local workerd + D1 + R2."""
-import io,os,time,json,base64
+import io,os,time,json,base64,hmac,hashlib,struct
 from pathlib import Path
 import qrcode
 from playwright.sync_api import sync_playwright,expect
@@ -13,6 +13,17 @@ with sync_playwright() as p:
  expect(admin.locator('#png')).to_be_disabled();admin.click('#admin-link');expect(admin.locator('#users-body')).to_contain_text('admin')
  admin.fill('#invite-count','3');admin.fill('#invite-note','browser test');admin.locator('#invite-form button[type=submit]').click();expect(admin.locator('#invite-result')).to_be_visible()
  links=admin.locator('#invite-links').input_value().splitlines();assert len(links)==3
+ admin.fill('#support-contact','微信：sunflower_support <客服>');admin.fill('#support-url','mailto:support@example.com');admin.locator('#support-form button').click();expect(admin.locator('#security-message')).to_contain_text('已保存')
+ visitor=browser.new_page(viewport={'width':390,'height':844});visitor.goto(BASE+'/login')
+ expect(visitor.locator('details')).to_have_count(0);expect(visitor.locator('[data-support]')).to_be_hidden()
+ Path('test-results').mkdir(exist_ok=True);visitor.screenshot(path='test-results/login-mobile.png',full_page=True)
+ visitor.click('#support-open');expect(visitor.locator('#auth-support-dialog')).to_be_visible()
+ expect(visitor.locator('[data-support]')).to_contain_text('sunflower_support <客服>')
+ expect(visitor.locator('[data-support] a')).to_have_attribute('href','mailto:support@example.com')
+ visitor.click('#auth-support-close');expect(visitor.locator('#support-open')).to_be_focused()
+ visitor.click('#forgot-open');expect(visitor.locator('#admin-recovery-link')).to_be_visible();expect(visitor.locator('#auth-support-hint')).to_contain_text('密码重置链接')
+ visitor.keyboard.press('Escape');expect(visitor.locator('#auth-support-dialog')).not_to_be_visible()
+ visitor.close()
  user=browser.new_page(viewport={'width':390,'height':844},reduced_motion='reduce');user.on('pageerror',lambda e:errors.append(str(e)))
  external=[];external_status=[200];external_url=['https://surl.id/TestCode12'];external_abort=[False];external_hold=[False];held=[]
  def shorten(route):
@@ -69,6 +80,15 @@ with sync_playwright() as p:
  expect(user.locator('#result-badge')).to_have_text('待生成');expect(user.locator('#png')).to_be_disabled()
  external_hold[0]=False
  user.locator('nav a[href="/history"]').click();expect(user.locator('.history-card')).to_have_count(2)
+ expand=user.get_by_role('button',name='展开链接',exact=True);expect(expand).to_have_count(1);expand.click()
+ expect(user.get_by_role('button',name='收起链接')).to_have_attribute('aria-expanded','true');user.get_by_role('button',name='收起链接').click()
+ user.fill('#history-query','?q=');user.locator('#history-filter button[type=submit]').click();expect(user.locator('.history-card')).to_have_count(1)
+ user.fill('#history-query','no_such_url');user.locator('#history-filter button[type=submit]').click();expect(user.locator('#history-empty')).to_contain_text('没有匹配');expect(user.locator('.history-card')).to_have_count(0)
+ user.click('#history-clear');expect(user.locator('.history-card')).to_have_count(2)
+ # A failed search must restore the query that produced the currently displayed cards.
+ user.route('**/api/history?*',lambda route:route.fulfill(status=503,content_type='application/json',body='{"error":"temporary failure"}'))
+ user.fill('#history-query','failed_search');user.locator('#history-filter button[type=submit]').click();expect(user.locator('#page-message')).to_contain_text('temporary failure');expect(user.locator('#history-query')).to_have_value('');expect(user.locator('.history-card')).to_have_count(2)
+ user.unroute('**/api/history?*');user.click('#history-clear');expect(user.locator('#page-message')).to_be_hidden()
  admin.locator('#user-filter button').click();row=admin.locator('#users-body tr').filter(has_text='browser_user');expect(row).to_be_visible();assert row.locator('td').nth(3).inner_text()=='2'
  # Administrator can inspect another user's images without affecting counts.
  row.get_by_role('link',name='查看 browser_user 的生成记录').click()
@@ -103,8 +123,38 @@ with sync_playwright() as p:
  for width in [320,390,768,1440]:
   for page in [user,admin]:
    page.set_viewport_size({'width':width,'height':900});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+  if width<=390:
+   for action in row.locator('.user-actions a,.user-actions button').all():
+    action.scroll_into_view_if_needed();box=action.bounding_box();assert box['x']>=0 and box['x']+box['width']<=width and box['height']>=40
   if width==390:user.screenshot(path='test-results/history-mobile.png',full_page=True);admin.screenshot(path='test-results/admin-mobile.png',full_page=True)
   if width==1440:admin.screenshot(path='test-results/admin-desktop.png',full_page=True);user.screenshot(path='test-results/history-desktop.png',full_page=True)
+ # Reset a user through the real administrator dialog; old sessions must stop working.
+ admin.set_viewport_size({'width':390,'height':844});row.get_by_role('button',name='重置密码').click()
+ admin.fill('#reset-admin-password',PASSWORD);admin.locator('#reset-dialog button[type=submit]').click();expect(admin.locator('#reset-result')).to_be_visible()
+ reset_link=admin.locator('#reset-link').input_value();assert '#token=' in reset_link
+ admin.screenshot(path='test-results/reset-dialog-mobile.png',full_page=True)
+ reset=browser.new_page();reset.goto(reset_link);expect(reset.locator('#reset-form')).to_be_visible();assert '#' not in reset.url
+ expect(reset.locator('#reset-recovery-fields')).to_be_hidden()
+ reset.fill('#reset-new','Browser-New-Password-2026!');reset.fill('#reset-confirm','Browser-New-Password-2026!');reset.locator('#reset-form button').click();expect(reset.locator('#auth-help')).to_contain_text('密码已重置')
+ user.reload();expect(user).to_have_url(BASE+'/login');user.fill('#auth-username','browser_user');user.fill('#auth-password','Browser-New-Password-2026!');user.click('#auth-submit');expect(user.locator('#current-user')).to_have_text('browser_user')
+ user.click('#password-open');expect(user.locator('#password-mfa-fields')).to_be_hidden();user.click('#password-close')
+ admin.locator('#reset-dialog button').filter(has_text='关闭').click();reset.close()
+ # Bind an authenticator using an independently calculated standard TOTP code.
+ admin.fill('#mfa-password',PASSWORD);admin.locator('#mfa-setup button').click();expect(admin.locator('#mfa-bind')).to_be_visible()
+ seed=base64.b32decode(admin.locator('#mfa-secret').inner_text())
+ mac=hmac.new(seed,struct.pack('>Q',int(time.time())//30),hashlib.sha1).digest();offset=mac[-1]&15
+ code=str((struct.unpack('>I',mac[offset:offset+4])[0]&0x7fffffff)%1000000).zfill(6)
+ admin.fill('#mfa-code',code);admin.click('#mfa-enable');expect(admin.locator('#mfa-recovery-result')).to_be_visible()
+ backups=admin.locator('#mfa-recovery-codes').input_value().splitlines();assert len(backups)==8
+ with admin.expect_download() as download:admin.click('#mfa-save-codes')
+ assert all(backup in Path(download.value.path()).read_text() for backup in backups)
+ admin.locator('#mfa-recovery-result a').click();admin.fill('#auth-username','admin');admin.fill('#auth-password',PASSWORD);admin.click('#auth-submit');expect(admin.locator('#auth-mfa-fields')).to_be_visible()
+ admin.fill('#auth-mfa-code',backups[0]);admin.click('#auth-submit');expect(admin.locator('#current-user')).to_have_text('admin');admin.click('#admin-link');expect(admin.locator('#mfa-status')).to_contain_text('剩余 7')
+ # A backup recovery code also restores a forgotten administrator password.
+ recover=browser.new_page(viewport={'width':390,'height':844});recover.goto(BASE+'/reset-password');expect(recover.locator('#reset-recovery-fields')).to_be_visible()
+ recover.fill('#reset-username','admin');recover.fill('#reset-recovery',backups[1]);recover.fill('#reset-new','Recovered-Admin-2026!');recover.fill('#reset-confirm','Recovered-Admin-2026!');recover.locator('#reset-form button').click();expect(recover.locator('#auth-help')).to_contain_text('二次验证已关闭')
+ admin.reload();expect(admin).to_have_url(BASE+'/login');admin.fill('#auth-username','admin');admin.fill('#auth-password','Recovered-Admin-2026!');admin.click('#auth-submit');expect(admin.locator('#current-user')).to_have_text('admin');admin.click('#admin-link');expect(admin.locator('#mfa-status')).to_have_text('未启用');expect(admin.locator('#support-contact')).to_have_value('微信：sunflower_support <客服>')
+ recover.close()
  assert not errors,errors
  browser.close()
-print('PASS: admin initialization, invite/register/login, real QR, R2 history PNG/SVG/avatars, counts, disable/re-enable, mobile/desktop')
+print('PASS: admin initialization, invite/register/login, real QR, R2 history PNG/SVG/avatars, counts, disable/re-enable, mobile/desktop, support, search, one-time password reset, MFA and backup recovery')

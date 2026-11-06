@@ -28,6 +28,15 @@
         <a id="history-action" class="action-link" href="/">生成新图片 ↗</a>
       </div>
       <p id="page-message" class="notice-error" role="alert" hidden></p>
+      <form id="history-filter" class="filter-row">
+        <label for="history-query"
+          >搜索原链接<input
+            id="history-query"
+            type="search"
+            maxlength="200"
+            placeholder="输入网址关键词" /></label
+        ><button type="submit">搜索</button><button id="history-clear" type="button">清除</button>
+      </form>
       <div id="history-list" class="history-grid"></div>
       <div id="history-empty" class="panel empty-history" hidden>
         还没有生成记录。<a href="/">去生成第一张葵花码</a>

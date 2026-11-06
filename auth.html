@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="/src/styles/app.css" />
     <link rel="stylesheet" href="/src/styles/console.css" />
     <script defer src="/src/ui/api.js"></script>
+    <script defer src="/src/ui/security.js"></script>
     <script defer src="/src/ui/account.js"></script>
   </head>
   <body>
@@ -49,9 +50,67 @@
             maxlength="128"
           />
         </div>
+        <div id="auth-mfa-fields" hidden>
+          <label for="auth-mfa-code">动态码或备用恢复码</label
+          ><input
+            id="auth-mfa-code"
+            autocomplete="one-time-code"
+            maxlength="80"
+            placeholder="验证器的 6 位动态码"
+          />
+          <p>使用备用恢复码登录后，该恢复码将失效。</p>
+        </div>
         <button id="auth-submit" class="primary" type="submit">登录</button>
       </form>
       <a id="auth-switch" href="/login" hidden>已有账号，前往登录 →</a>
+      <form id="reset-form" hidden>
+        <div id="reset-recovery-fields">
+          <label for="reset-username">管理员账号</label
+          ><input id="reset-username" autocomplete="username" maxlength="32" /><label
+            for="reset-recovery"
+            >备用恢复码</label
+          ><input id="reset-recovery" autocomplete="off" maxlength="80" />
+        </div>
+        <p id="reset-recovery-hint">
+          仅管理员可使用绑定二次验证时保存的备用码恢复账号。恢复后会关闭二次验证，请重新绑定。普通用户请联系管理员获取重置链接。
+        </p>
+        <label for="reset-new">新密码</label
+        ><input
+          id="reset-new"
+          type="password"
+          autocomplete="new-password"
+          minlength="12"
+          maxlength="128"
+          required
+        />
+        <label for="reset-confirm">确认新密码</label
+        ><input
+          id="reset-confirm"
+          type="password"
+          autocomplete="new-password"
+          minlength="12"
+          maxlength="128"
+          required
+        />
+        <button class="primary" type="submit">重置密码</button>
+      </form>
+      <div class="auth-links">
+        <button id="forgot-open" type="button">忘记密码</button>
+        <button id="support-open" type="button">联系支持</button>
+      </div>
     </main>
+    <dialog id="auth-support-dialog" aria-labelledby="auth-support-title">
+      <div class="dialog-heading">
+        <h2 id="auth-support-title">联系支持</h2>
+        <button id="auth-support-close" type="button" class="icon-button" aria-label="关闭">
+          ×
+        </button>
+      </div>
+      <p id="auth-support-hint"></p>
+      <p data-support>请联系邀请你的管理员。</p>
+      <a id="admin-recovery-link" class="action-link" href="/reset-password" hidden
+        >管理员账号恢复 →</a
+      >
+    </dialog>
   </body>
 </html>

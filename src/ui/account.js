@@ -35,6 +35,11 @@
     return b;
   };
   if ($('auth-form')) {
+    AppSecurity.publicHelp().catch(() => {});
+    if (location.pathname === '/reset-password') {
+      await AppSecurity.resetPage();
+      return;
+    }
     const register = location.pathname === '/register',
       invite = new URLSearchParams(location.search).get('invite') || '';
     // Keep invitation out of address-bar history and all subsequent requests.
@@ -62,7 +67,12 @@
         if (register && password !== $('auth-confirm').value) throw Error('两次密码不一致。');
         await api.request('/api/auth/' + (register ? 'register' : 'login'), {
           method: 'POST',
-          body: { username, password, ...(register ? { invite } : {}) },
+          body: {
+            username,
+            password,
+            code: $('auth-mfa-code').value.trim(),
+            ...(register ? { invite } : {}),
+          },
         });
         if (register) {
           $('auth-form').hidden = true;
@@ -71,6 +81,10 @@
           $('auth-switch').textContent = '前往登录 →';
         } else location.assign('/');
       } catch (e) {
+        if (e.code === 'MFA_REQUIRED' || e.code === 'MFA_INVALID') {
+          $('auth-mfa-fields').hidden = false;
+          $('auth-mfa-code').focus();
+        }
         message(e.message);
       } finally {
         submit.disabled = false;
@@ -86,6 +100,7 @@
   }
   if ($('current-user')) $('current-user').textContent = user.username;
   if ($('admin-link')) $('admin-link').hidden = user.role !== 'admin';
+  if ($('password-mfa-fields')) $('password-mfa-fields').hidden = user.role !== 'admin';
   $('logout')?.addEventListener('click', async () => {
     try {
       await api.request('/api/auth/logout', { method: 'POST', body: {} });
@@ -103,7 +118,11 @@
     try {
       await api.request('/api/auth/password', {
         method: 'POST',
-        body: { current: $('password-current').value, password: $('password-new').value },
+        body: {
+          current: $('password-current').value,
+          password: $('password-new').value,
+          code: $('password-code').value.trim(),
+        },
       });
       location.assign('/login');
     } catch (error) {
@@ -126,13 +145,16 @@
       if (!/^[a-f0-9-]{36}$/.test(ownerId)) throw Error('请从管理后台选择账号。');
     }
     const endpoint = viewingUser ? `/api/admin/users/${ownerId}/history` : '/api/history';
+    let query = '';
     let page = 1,
       total = 0,
       loading = false;
 
     async function load() {
       message('');
-      const result = await api.request(endpoint + '?page=' + page);
+      const result = await api.request(
+        endpoint + '?page=' + page + '&q=' + encodeURIComponent(query),
+      );
       if (viewingUser) {
         $('history-title').textContent = result.user.username + ' 的生成记录';
         document.title = result.user.username + ' 的生成记录 · 葵花码';
@@ -142,6 +164,12 @@
       total = result.total;
       $('history-list').replaceChildren();
       $('history-empty').hidden = result.items.length > 0;
+      if (!result.items.length)
+        $('history-empty').textContent = query
+          ? '没有匹配的记录，请更换关键词或清除搜索。'
+          : viewingUser
+            ? '该账号还没有生成记录。'
+            : '还没有生成记录，去生成第一张葵花码吧。';
       for (const item of result.items) {
         const card = el('article', undefined, 'history-card'),
           image = el('img');
@@ -150,7 +178,11 @@
         image.loading = 'lazy';
         card.append(
           image,
-          el('p', item.originalUrl, 'history-url'),
+          el(
+            'p',
+            item.originalUrl,
+            item.originalUrl.length > 90 ? 'history-url collapsed' : 'history-url',
+          ),
           el(
             'small',
             date(item.createdAt) +
@@ -158,6 +190,16 @@
               (viewingUser ? (item.source === 'qr' ? ' · 二维码' : ' · 网页链接') : ''),
           ),
         );
+        if (item.originalUrl.length > 90) {
+          const expand = button('展开链接', async () => {
+            const collapsed = card.querySelector('.history-url').classList.toggle('collapsed');
+            expand.textContent = collapsed ? '展开链接' : '收起链接';
+            expand.setAttribute('aria-expanded', String(!collapsed));
+          });
+          expand.className = 'expand-link';
+          expand.setAttribute('aria-expanded', 'false');
+          card.append(expand);
+        }
         const actions = el('div', undefined, 'row-actions');
         const data = async () => {
           const r = await fetch(item.imageUrl, { credentials: 'same-origin' });
@@ -177,34 +219,52 @@
       $('history-prev').disabled = page === 1;
       $('history-next').disabled = page * 20 >= result.total;
     }
-    async function turnPage(delta) {
+    async function turnPage(delta, nextQuery = query) {
       if (loading) return;
       loading = true;
-      const previous = page;
-      page += delta;
+      const previous = page,
+        previousQuery = query;
+      $('history-filter')
+        .querySelectorAll('input,button')
+        .forEach((node) => (node.disabled = true));
+      page = nextQuery === query ? page + delta : 1;
+      query = nextQuery;
       $('history-prev').disabled = $('history-next').disabled = true;
       try {
         await load();
       } catch (error) {
         page = previous;
+        query = previousQuery;
+        $('history-query').value = query;
         message(error.message);
         $('history-prev').disabled = page === 1;
         $('history-next').disabled = page * 20 >= total;
       } finally {
+        $('history-filter')
+          .querySelectorAll('input,button')
+          .forEach((node) => (node.disabled = false));
         loading = false;
       }
     }
+    $('history-filter').onsubmit = async (event) => {
+      event.preventDefault();
+      if (loading) return;
+      await turnPage(0, $('history-query').value.trim());
+    };
+    $('history-clear').onclick = () => {
+      if (loading) return;
+      $('history-query').value = '';
+      turnPage(0, '');
+    };
     $('history-prev').onclick = () => turnPage(-1);
     $('history-next').onclick = () => turnPage(1);
     $('history-prev').disabled = $('history-next').disabled = true;
-    try {
-      await load();
-    } catch (error) {
-      if (viewingUser) $('history-description').textContent = '';
-      throw error;
-    }
+    await turnPage(0);
   }
   if ($('users-table')) {
+    AppSecurity.admin().catch((e) => {
+      $('security-message').textContent = e.message;
+    });
     let userPage = 1,
       invitePage = 1;
     async function users() {
@@ -229,13 +289,29 @@
           u.period,
           date(u.createdAt),
           date(u.lastLoginAt),
-        ])
-          tr.append(el('td', v));
+        ]) {
+          const cell = el('td', v);
+          cell.dataset.label = [
+            '账号',
+            '角色',
+            '状态',
+            '累计生成',
+            '今日',
+            '所选时段',
+            '注册时间',
+            '最近登录',
+          ][tr.children.length];
+          tr.append(cell);
+        }
         const td = el('td');
         const historyLink = el('a', '查看记录', 'record-link');
         historyLink.href = '/admin/history?user=' + encodeURIComponent(u.id);
         historyLink.setAttribute('aria-label', '查看 ' + u.username + ' 的生成记录');
+        td.className = 'user-actions';
+        td.dataset.label = '操作';
         td.append(historyLink);
+        if (u.role !== 'admin' && u.status === 'active')
+          td.append(button('重置密码', async () => AppSecurity.resetDialog(u)));
         if (u.role !== 'admin')
           td.append(
             button(u.status === 'active' ? '停用' : '启用', async () => {
@@ -273,9 +349,16 @@
           i.used_by || '—',
           date(i.expires_at),
           date(i.used_at),
-        ])
-          tr.append(el('td', v));
+        ]) {
+          const cell = el('td', v);
+          cell.dataset.label = ['备注', '状态', '注册账号', '到期时间', '使用时间'][
+            tr.children.length
+          ];
+          tr.append(cell);
+        }
         const td = el('td');
+        td.className = 'user-actions';
+        td.dataset.label = '操作';
         if (state === '待使用')
           td.append(
             button('撤销', async () => {

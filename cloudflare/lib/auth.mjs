@@ -67,7 +67,7 @@ export async function getUser(request, db) {
   if (!/^[a-f0-9]{64}$/.test(token)) return null;
   return db
     .prepare(
-      `SELECT u.* FROM users u JOIN sessions s ON s.user_id=u.id WHERE s.token_hash=? AND s.expires_at>? AND u.status='active'`,
+      `SELECT u.* FROM users u JOIN sessions s ON s.user_id=u.id WHERE s.token_hash=? AND s.expires_at>? AND u.status='active' AND s.security_version=u.security_version`,
     )
     .bind(await digest(token), Date.now())
     .first();
@@ -110,8 +110,10 @@ export async function newSession(db, user, request) {
     now = Date.now();
   await db.batch([
     db
-      .prepare('INSERT INTO sessions VALUES(?,?,?,?)')
-      .bind(await digest(token), user.id, now, now + 604800000),
+      .prepare(
+        'INSERT INTO sessions(token_hash,user_id,created_at,expires_at,security_version) VALUES(?,?,?,?,?)',
+      )
+      .bind(await digest(token), user.id, now, now + 604800000, user.security_version),
     db.prepare('UPDATE users SET last_login_at=? WHERE id=?').bind(now, user.id),
     db.prepare('DELETE FROM sessions WHERE expires_at<?').bind(now),
   ]);

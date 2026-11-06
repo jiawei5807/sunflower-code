@@ -17,6 +17,8 @@
 - 管理员可查看任意账号的生成记录、预览和下载图片，支持分页和停用账号。
 - 管理员查看账号、累计 / 今日 / 指定日期生成次数、最近登录；停用账号立即撤销所有会话。
 - 同一个请求标识重试不重复计数。生成失败不计数，下载、复制、头像与尺寸调整不重复计数。
+- 普通用户通过管理员签发的一次性链接重置密码；管理员可启用验证器二次验证和备用恢复码。
+- 联系方式由管理员配置；手机后台采用卡片布局，历史记录支持搜索和长链接折叠。
 - 天蓝色响应式界面；支持二维码上传、拖放与粘贴，PNG/JPEG/WebP 头像。
 
 ## 部署到 Cloudflare Pages
@@ -40,13 +42,16 @@
 
 Cloudflare 控制台 → **存储与数据库 → D1 → 创建数据库**，例如 `sunflower-preview`。
 
-在数据库 Console 中执行 [migrations/0001_accounts.sql](migrations/0001_accounts.sql) 的完整内容，或使用 CLI：
+新数据库在 Console 中依次执行 [0001_accounts.sql](migrations/0001_accounts.sql) 和 [0002_account_security.sql](migrations/0002_account_security.sql) 的完整内容，或使用 CLI：
 
 ```sh
 npx wrangler d1 execute sunflower-preview --remote --file=migrations/0001_accounts.sql
+npx wrangler d1 execute sunflower-preview --remote --file=migrations/0002_account_security.sql
 ```
 
-这是新数据库的一次性建表脚本，不要在已有表的数据库上反复执行。后续升级通过新增迁移文件处理。
+每个脚本只执行一次。`sunflower-preview` 替换成你的实际数据库名称。
+
+**已有邀请制站点升级：只执行 `0002_account_security.sql`，不要重跑 0001。** 先备份 D1，安排短暂维护窗口，执行 0002 后立即部署此版本。迁移期间旧版本的登录可能失败；新版本在迁移前无法正常使用。迁移保留账号、邀请、历史和图片，无需重新创建数据库或 R2。不要把迁移后的数据库交给旧版本代码运行。
 
 ### 3. 创建私有 R2 桶
 
@@ -72,6 +77,7 @@ Pages 项目 → **设置 → 变量和机密**，为实际部署环境添加：
 | 普通变量 | `ADMIN_USERNAME` | 初始管理员账号，例如 `admin`；3～32 位字母、数字或下划线 |
 | Secret | `ADMIN_PASSWORD` | 初始管理员密码，12～128 位，使用随机强密码 |
 | Secret | `ACEDATA_TOKEN` | Ace Data Token 本体，不加 `Bearer ` 前缀 |
+| Secret | `MFA_ENCRYPTION_KEY` | 可选；启用管理员二次验证前必填，64 位十六进制随机值 |
 
 首次使用管理员账号登录时，服务端仅在没有管理员的数据库里创建该账号。后续登录使用数据库里的密码哈希，修改环境变量不会重置已有账号。
 
@@ -81,6 +87,14 @@ Pages 项目 → **设置 → 变量和机密**，为实际部署环境添加：
 
 浏览器直连需要 Ace Data 允许跨域请求。Token 不写入源码或浏览器持久存储，但请求过程中对登录用户可见；本站无法限制已复制 Token 的站外调用，请在服务商侧设置额度与权限。
 
+启用二次验证时，在自己的终端运行以下命令，将输出填入 `MFA_ENCRYPTION_KEY` Secret，然后重新部署：
+
+```sh
+openssl rand -hex 32
+```
+
+此密钥用于加密 D1 中的验证器密钥，不是验证器动态码或 Ace Data Token。**启用后需保留原值，并在站点之外安全备份；不要随意替换或删除。** 未配置不影响普通登录、密码重置、支持配置和历史功能，仅不能绑定验证器。
+
 ### 6. 保存并重新部署，然后验收
 
 1. 打开站点应进入登录页，未登录直接访问 `/admin`、`/history` 也不能使用。
@@ -88,6 +102,8 @@ Pages 项目 → **设置 → 变量和机密**，为实际部署环境添加：
 3. 无痕窗口打开邀请 → 注册 → 登录 → 生成图片。
 4. 查看历史记录并再次下载图片；后台账号累计次数应增加 1。
 5. 再用同一邀请注册应失败；停用账号后用户重新请求应退回登录。
+6. 后台“支持与安全”保存联系方式，退出后点击“联系支持”核对；在用户卡片生成重置链接，验证重置后旧登录失效。
+7. 如启用二次验证，在后台绑定验证器、下载备用码并保存到站点以外，再退出验证登录；详细操作见使用说明。
 
 更多说明见 [部署与数据维护](docs/deployment.md)、[使用说明](docs/usage.md)。
 
@@ -98,7 +114,7 @@ Node.js 22+、Python 3.9+：
 ```sh
 npm ci
 cp .env.example .env.local
-# 在 .env.local 填写 ADMIN_PASSWORD，按需填写 ACEDATA_TOKEN
+# 在 .env.local 填写 ADMIN_PASSWORD，按需填写 ACEDATA_TOKEN 和 MFA_ENCRYPTION_KEY
 npm run dev
 ```
 

@@ -283,3 +283,142 @@ td button {
     gap: 0;
   }
 }
+.auth-links {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+}
+.auth-links button {
+  width: auto;
+  margin: 0;
+  padding: 8px 0;
+  min-height: 40px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: 12px;
+}
+.auth-links button:hover {
+  color: var(--accent);
+}
+#auth-support-dialog p {
+  overflow-wrap: anywhere;
+}
+#auth-support-dialog a {
+  color: var(--accent);
+  font-size: 13px;
+}
+#reset-form label,
+#reset-dialog label,
+#mfa-bind label {
+  display: block;
+  margin: 16px 0 8px;
+  font-size: 13px;
+}
+#reset-dialog {
+  max-width: 520px;
+}
+#reset-dialog p,
+#security-settings p {
+  font-size: 13px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+#reset-link,
+#mfa-recovery-codes {
+  margin: 16px 0;
+}
+.secret-value {
+  display: block;
+  padding: 16px;
+  background: #eff8ff;
+  overflow-wrap: anywhere;
+  font-size: 16px;
+  user-select: all;
+}
+#mfa-bind {
+  max-width: 520px;
+}
+#mfa-bind button {
+  margin: 14px 0;
+}
+.history-url.collapsed {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.expand-link {
+  display: block;
+  padding: 4px 0;
+  border: 0;
+  color: var(--accent);
+  font-size: 12px;
+  background: transparent;
+}
+.user-actions button {
+  margin-right: 8px;
+}
+#history-filter label {
+  flex: 1;
+}
+@media (max-width: 760px) {
+  :is(#users-table, #invites-table),
+  :is(#users-table, #invites-table) tbody,
+  :is(#users-table, #invites-table) tr,
+  :is(#users-table, #invites-table) td {
+    display: block;
+    width: 100%;
+  }
+  :is(#users-table, #invites-table) thead {
+    display: none;
+  }
+  :is(#users-table, #invites-table) tr {
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    margin-bottom: 14px;
+    padding: 12px;
+    box-sizing: border-box;
+  }
+  :is(#users-table, #invites-table) td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    white-space: normal;
+    padding: 8px 0;
+    box-sizing: border-box;
+    overflow-wrap: anywhere;
+  }
+  :is(#users-table, #invites-table) td::before {
+    content: attr(data-label);
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+  :is(#users-table, #invites-table) .user-actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    border: 0;
+    gap: 10px;
+    padding-top: 12px;
+  }
+  :is(#users-table, #invites-table) .user-actions::before {
+    display: none;
+  }
+  :is(#users-table, #invites-table) .user-actions button,
+  :is(#users-table, #invites-table) .record-link {
+    margin: 0;
+    padding: 10px 12px;
+    min-height: 40px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+  #reset-dialog {
+    width: calc(100% - 32px);
+    padding: 20px;
+    box-sizing: border-box;
+  }
+}

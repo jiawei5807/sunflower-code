@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="/src/styles/app.css" />
     <link rel="stylesheet" href="/src/styles/console.css" />
     <script defer src="/src/ui/api.js"></script>
+    <script defer src="/src/ui/security.js"></script>
     <script defer src="/src/ui/account.js"></script>
   </head>
   <body>
@@ -98,7 +99,7 @@
       <section class="panel">
         <h2>邀请记录</h2>
         <div class="table-scroll">
-          <table>
+          <table id="invites-table">
             <thead>
               <tr>
                 <th>备注</th>
@@ -117,6 +118,94 @@
           ><button id="invites-next">下一页</button>
         </div>
       </section>
+      <section class="panel" id="security-settings">
+        <h2>支持与安全</h2>
+        <p id="security-message" role="status"></p>
+        <form id="support-form" class="filter-row">
+          <label
+            >联系方式<input
+              id="support-contact"
+              maxlength="200"
+              placeholder="微信号、邮箱或联系说明" /></label
+          ><label
+            >客服链接（可选）<input
+              id="support-url"
+              maxlength="500"
+              placeholder="https://… 或 mailto:…" /></label
+          ><button type="submit">保存联系方式</button>
+        </form>
+        <h3>管理员二次验证</h3>
+        <p id="mfa-status">正在读取…</p>
+        <form id="mfa-setup" class="filter-row">
+          <label
+            >当前密码<input
+              id="mfa-password"
+              type="password"
+              autocomplete="current-password"
+              required /></label
+          ><button type="submit">开始绑定验证器</button>
+        </form>
+        <div id="mfa-bind" hidden>
+          <p>
+            在 Microsoft Authenticator、Google Authenticator
+            等验证器中选择“手动输入密钥”，类型选择“基于时间”，账号名称填写你的管理员账号。
+          </p>
+          <code id="mfa-secret" class="secret-value"></code
+          ><label for="mfa-code">输入验证器的 6 位动态码</label
+          ><input
+            id="mfa-code"
+            inputmode="numeric"
+            autocomplete="one-time-code"
+            maxlength="6"
+          /><button id="mfa-enable" type="button">确认启用</button>
+        </div>
+        <div id="mfa-recovery-result" hidden>
+          <p>
+            备用码只显示这一次，每个只能使用一次。请保存在站点以外，丢失验证器或忘记管理员密码时可恢复。所有旧登录已失效。重新登录时请等待下一个动态码，或使用一个备用码。
+          </p>
+          <textarea id="mfa-recovery-codes" readonly rows="8"></textarea
+          ><button id="mfa-save-codes" type="button">下载备用码</button>
+          <a href="/login">已保存，重新登录 →</a>
+        </div>
+        <form id="mfa-disable-form" class="filter-row" hidden>
+          <label
+            >当前密码<input
+              id="mfa-disable-password"
+              type="password"
+              autocomplete="current-password"
+              required /></label
+          ><label
+            >动态码或备用码<input
+              id="mfa-disable-code"
+              autocomplete="one-time-code"
+              maxlength="80"
+              required /></label
+          ><button type="submit">关闭二次验证</button>
+        </form>
+      </section>
     </main>
+    <dialog id="reset-dialog">
+      <form>
+        <h2 id="reset-target">重置密码</h2>
+        <p>核实用户身份后生成一次性链接，30 分钟有效。重新生成会使旧链接失效。</p>
+        <label for="reset-admin-password">你的管理员密码</label
+        ><input
+          id="reset-admin-password"
+          type="password"
+          autocomplete="current-password"
+          required
+        /><label for="reset-admin-code">动态码或备用码（已启用二次验证时必填）</label
+        ><input id="reset-admin-code" autocomplete="one-time-code" maxlength="80" />
+        <p id="reset-error" role="alert"></p>
+        <div class="row-actions">
+          <button type="button" onclick="this.closest('dialog').close()">关闭</button
+          ><button type="submit">生成重置链接</button>
+        </div>
+      </form>
+      <div id="reset-result" hidden>
+        <textarea id="reset-link" rows="3" readonly></textarea
+        ><button id="reset-copy" type="button">复制重置链接</button>
+      </div>
+    </dialog>
   </body>
 </html>

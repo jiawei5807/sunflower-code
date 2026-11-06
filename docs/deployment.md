@@ -4,9 +4,13 @@
 
 按 README 创建并绑定 D1 `DB`、私有 R2 `IMAGES`。Pages 构建命令 `npm run build:pages`，输出 `dist`。整个站点均经 Functions 路由，不能排除历史图片 API 或后台 API 的鉴权。
 
-运行时变量：ADMIN_USERNAME、初始化机密 ADMIN_PASSWORD、转链机密 ACEDATA_TOKEN。管理员首次登录后从页面修改密码，删除初始化机密并重新部署。环境变量不能重置已有密码。生产 / 预览必须使用隔离资源。
+运行时变量：ADMIN_USERNAME、初始化机密 ADMIN_PASSWORD、转链机密 ACEDATA_TOKEN，以及可选的 MFA_ENCRYPTION_KEY（绑定管理员二次验证时必需）。管理员首次登录后从页面修改密码，删除初始化机密并重新部署。环境变量不能重置已有密码。生产 / 预览必须使用隔离资源。
 
-D1 migrations/0001_accounts.sql 仅初始化一次新库。已有免登录版本没有用户数据，因此此分支先用新预览库验收；不自动迁移生产配置。
+新库依次执行 `migrations/0001_accounts.sql`、`migrations/0002_account_security.sql`；已有邀请制数据库只执行 0002 一次。先备份，再在维护窗口内迁移并立即部署，新旧版本与迁移间不能混用。0002 保留已有数据，新增安全版本、密码重置、验证器、备用码和支持配置表；不更改 R2。
+
+MFA_ENCRYPTION_KEY 使用 `openssl rand -hex 32` 生成，以 Secret 保存到实际运行的生产或预览环境，重新部署后生效。不要覆盖现有密钥；验证器种子以 AES-GCM 加密依赖此值解密，备份时须同时保留数据库和独立的加密密钥。误删时应恢复原值；备用码仍可用于登录或管理员密码恢复。不要把加密密钥提交到仓库。
+
+支持联系方式在管理后台配置，保存到 D1，不需新增环境变量或重新部署。
 
 ## 数据与图片
 
@@ -26,7 +30,7 @@ D1 与 R2 不支持跨资源事务。明确失败会标记 failed 并尽力删�
 
 ## 防护与运维
 
-所有写请求要求同源 Origin；身份基于 7 天 HttpOnly / Secure / SameSite Cookie，D1 每次检查账号状态。注销、改密码和停用账号撤销会话。不要以浏览器隐藏按钮作为权限边界。
+所有写请求要求同源 Origin；身份基于 7 天 HttpOnly / Secure / SameSite Cookie，D1 每次检查账号状态。注销、改密码和停用账号撤销会话；密码重置和二次验证启停也会撤销。会话安全版本必须与账号一致，并发请求无法恢复旧版本会话。不要以浏览器隐藏按钮作为权限边界。
 
 登录按来源 IP 与账号限流；注册、生成和邀请操作用 D1 原子计数跨节点限流。建议公开试运行时再配置 Cloudflare WAF / Turnstile，评估流量、存储费用与限额。密码派生使用 workerd 原生 PBKDF2-SHA256，100,000 次；登录限流不能代替强密码和持续安全评估。
 
@@ -38,7 +42,7 @@ D1 与 R2 不支持跨资源事务。明确失败会标记 failed 并尽力删�
 
 npm run dev 自动构建并启动本地 workerd；D1 和 R2 持久化在 .wrangler/state，自动应用尚未执行的迁移。本地 .env.local 不进 Git。测试脚本使用临时目录和模拟 Ace Data，不调用真实服务。
 
-本分支尚未配置任何线上 D1 或 R2，没有修改 main 或生产部署。授权状态见 NOTICE。
+本次改动仅验证本地 D1/R2，没有代为执行线上迁移或修改 main。授权状态见 NOTICE。
 
 ## 转链失败排查
 
