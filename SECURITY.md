@@ -1,6 +1,6 @@
 # 安全与数据
 
-不要把密码、ACEDATA_TOKEN、ADMIN_PASSWORD、.env.local、数据库备份或用户图片提交到仓库。密钥通过 Cloudflare Secrets 配置；R2 保持私有，用户生成图片经鉴权 API 访问。管理员主动发布的联系图片通过固定公开接口展示。
+不要把密码、ADMIN_PASSWORD、.env.local、数据库备份或用户图片提交到仓库。密钥通过 Cloudflare Secrets 配置；R2 保持私有，用户生成图片经鉴权 API 访问。管理员主动发布的联系图片通过固定公开接口展示。
 
 初始管理员只在数据库没有管理员时创建。首次登录后修改密码、删除 ADMIN_PASSWORD 机密并重新部署。会话 token 与邀请码只存 SHA-256 哈希，密码存随机盐 PBKDF2-SHA256（100,000 次，workerd 原生上限）。生产发布前应评估更强身份服务、Turnstile 和 WAF。
 
@@ -10,11 +10,9 @@
 
 如发现漏洞，请通过仓库私密报告渠道联系维护者，不在公开 Issue 中贴出凭据。商业部署前还需解决 NOTICE 中协议和图标的再分发授权。
 
-## 浏览器转链的凭据边界
+## 浏览器转链
 
-Ace Data 由浏览器直接调用。`ACEDATA_TOKEN` 仍配置在 Cloudflare，登录用户通过同源 `POST /api/shortener/config` 取得 Token；接口校验账号状态、Origin 并禁止缓存。未登录无法读取，但登录用户可以在开发者工具中提取并在站外复用 Token，前端隐藏或内存存储无法阻止这一点。
-
-源码和构建包不包含真实 Token，不写入 localStorage / sessionStorage。日志与错误不输出 Token 或服务商原始响应。本站限流和停用账号不能撤销用户此前复制的 Token，应在服务商侧限制额度、权限并按需轮换。
+超出容量时，原网址（含参数）会提交至 is.gd。浏览器使用匿名 HTTPS 请求，不携带登录 Cookie、Referer 或 API Key。此前使用过共享 Token 的部署可在原服务商处撤销旧凭据。
 
 服务端仅校验客户端提交的短链域名和格式，不访问短链目的地址，因此无法独立证明短链指向用户填写的原网址。历史原网址来自用户提交；生成图案编码经格式校验的短链。
 

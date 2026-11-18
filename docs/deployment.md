@@ -4,7 +4,7 @@
 
 按 README 创建并绑定 D1 `DB`、私有 R2 `IMAGES`。Pages 构建命令 `npm run build:pages`，输出 `dist`。整个站点均经 Functions 路由，不能排除历史图片 API 或后台 API 的鉴权。
 
-运行时变量：ADMIN_USERNAME、初始化机密 ADMIN_PASSWORD、转链机密 ACEDATA_TOKEN。管理员首次登录后从页面修改密码，删除初始化机密并重新部署。环境变量不能重置已有密码。生产 / 预览必须使用隔离资源。
+运行时变量：ADMIN_USERNAME、初始化机密 ADMIN_PASSWORD。管理员首次登录后从页面修改密码，删除初始化机密并重新部署。环境变量不能重置已有密码。生产 / 预览必须使用隔离资源。
 
 新库依次执行 `migrations/0001_accounts.sql`、`migrations/0002_account_security.sql`；已有邀请制数据库只执行最新 0002 一次。此次 0002 尚未用于线上，已直接去掉二次验证表，只增加用户/会话安全版本、密码重置和支持配置。保留账号密码、邀请及生成历史，不更改 R2。
 
@@ -40,24 +40,10 @@ D1 与 R2 不支持跨资源事务。明确失败会标记 failed 并尽力删�
 
 ## 本地环境
 
-npm run dev 自动构建并启动本地 workerd；D1 和 R2 持久化在 .wrangler/state，自动应用尚未执行的迁移。本地 .env.local 不进 Git。测试脚本使用临时目录和模拟 Ace Data，不调用真实服务。
+npm run dev 自动构建并启动本地 workerd；D1 和 R2 持久化在 .wrangler/state，自动应用尚未执行的迁移。本地 .env.local 不进 Git。测试脚本使用临时目录和模拟 is.gd，不调用真实服务。
 
 本次改动仅验证本地 D1/R2，没有代为执行线上迁移或修改 main。授权状态见 NOTICE。
 
-## 转链失败排查
+## 浏览器转链
 
-新 Pages 项目的机密不会自动继承其他项目。确认实际运行环境的 `ACEDATA_TOKEN` 为 Secret，值只填 Token 本体，不带 `Bearer `、引号或 curl 命令，并在修改后重新部署。
-
-- HTTP 401：服务商认证失败，核对 Token 是否正确、有效。
-- HTTP 402：检查 Ace Data 余额或额度。
-- HTTP 403：服务商拒绝访问，检查接口授权和来源访问限制；不能仅凭 403 判断为密码或余额问题。
-- HTTP 429：触发服务商限流，稍后重试。
-- 其他 HTTP 状态：在浏览器网络面板查看 Ace Data 请求状态，服务端不再请求外部转链；不要把包含 Authorization 的截图或 HAR 公开。
-
-提示“转链服务未配置”表示运行时机密为空；提示“浏览器无法连接”表示网络、跨域预检或重定向限制，需检查浏览器网络面板；这与收到非成功 HTTP 响应不同。短链同时兼容服务商的 `/编号` 与 `/r/编号` 路径，仍只接受固定 HTTPS 域名。
-
-## 浏览器直连模式
-
-无需新增变量：仍配置 ACEDATA_TOKEN。登录后才可请求转链配置，浏览器发送 Ace Data HTTPS POST，采用用户所在网络出口，不经 Functions 转发。外部服务需支持 Authorization / Content-Type 的 CORS 预检。短链和普通容量判断都不访问原网址。
-
-Token 对登录用户可见且可复制，不是服务端独占机密；不写仓库、不持久化到浏览器不能阻止站外复用。本站限流只保护本站 API，服务商侧应配置额度与权限。停用账号阻止后续本站访问，但不能撤销已复制 Token。服务端仅校验短链格式，不验证原网址与短链跳转对应关系。
+超容量时，浏览器直接向 `https://is.gd/create.php` 发送表单。无需转链密钥，使用 CSP 的站点需在 `connect-src` 中允许 `https://is.gd`。用户共用公网 IP 时也共用服务商额度。遇到限流请稍后重试，遇到连接失败请检查浏览器所在网络能否访问 is.gd。升级后可移除旧的 `ACEDATA_TOKEN`。历史图片中的旧短链仍由原服务商负责跳转。

@@ -140,14 +140,6 @@ export function createWorker() {
               'set-cookie': sessionCookie(request, '', true),
             });
           }
-          if (path === '/api/shortener/config' && method === 'POST') {
-            await readJSON(request, 4096);
-            await limit(db, 'shortener-config:' + user.id, 30, 60000);
-            const token = env.ACEDATA_TOKEN?.trim();
-            if (!token) throw new HttpError(503, '转链服务未配置，请联系管理员。');
-            // Browser direct calls necessarily expose this credential to signed-in users.
-            return json({ token });
-          }
           if (path === '/api/generate' && method === 'POST') {
             return json(await generate(env, user, await readJSON(request), request), 201);
           }

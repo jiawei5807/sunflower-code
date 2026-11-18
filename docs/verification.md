@@ -1,5 +1,8 @@
 # 邀请制版本验收记录
 
+2026-11-18 已将浏览器转链接口替换为 is.gd。下文 Ace Data 结果为旧版本的验收记录。
+
+
 验证环境：2026-11-04，Node.js 22、Miniflare 4.20260730.0 / workerd、Chromium、Python Playwright。当前转链实现已更新为浏览器直连；下方分日期记录区分早期服务端实测。对象为 `feature/invite-console`，不代表 main 生产环境已经升级。
 
 ## 自动化验证
@@ -13,7 +16,7 @@
 - 构建：整个站点通过 Worker 路由鉴权；静态输出不包含编码核心源码、环境文件或真实 Token。
 - 依赖：Miniflare 的 sharp / undici 使用兼容版本覆盖修复已知问题，`npm audit` 无已知漏洞。
 
-测试命令见 README。浏览器及转链接口回归使用模拟 Ace Data 响应，不消耗真实账号额度。当前浏览器直接请求 Ace Data，使用 `redirect: 'error'` 阻止重定向；Functions 不再请求该接口。
+测试命令见 README。浏览器及转链接口回归使用模拟 Ace Data 响应，不消耗真实账号额度。当时的浏览器直接请求 Ace Data，使用 `redirect: 'error'` 阻止重定向；Functions 不再请求该接口。
 
 ## 验证边界
 
