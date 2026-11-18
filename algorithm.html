@@ -1,5 +1,5 @@
-<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>算法说明 · 葵花码</title><link rel="stylesheet" href="src/styles/docs.css"><link rel="icon" href="data:,"></head><body><header class="topbar"><a class="brand" href="index.html">葵花码</a><a class="help-link" href="guide.html">使用说明</a></header><main class="guide"><a class="back" href="index.html">← 返回生成器</a><h1>葵花码算法说明</h1><nav class="doc-toc" aria-label="目录"><a href="#section-1">1. 处理流程</a><a href="#section-2">2. 输入校验</a><a href="#section-3">3. 载荷编码</a><a href="#section-4">4. 容量与自动选择</a><a href="#section-5">5. 补齐数据字节</a><a href="#section-6">6. Reed–Solomon 纠错</a><a href="#section-7">7. 放射矩阵与固定表</a><a href="#section-8">8. 掩码评分</a><a href="#section-9">9. 回读校验</a><a href="#section-10">10. SVG 几何绘制</a><a href="#section-11">11. 导出和交互状态</a><a href="#section-12">12. 完整计算示例</a><a href="#section-13">13. 复杂度与复用接口</a><a href="#section-14">14. 自动转链与密钥配置</a><a href="#section-15">15. 二维码图片转换</a></nav>
-<p>本文描述当前实现实际执行的算法。网页链接可手动输入，也可从上传的普通二维码图片中识别。编码以 HTTP/HTTPS 网页链接为输入，以放射状二值矩阵为中间结果，最后输出 SVG 或 PNG。编码与绘图在浏览器中完成，超容量时通过配置的转链服务申请短链接。</p>
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>算法说明 · 葵花码</title><link rel="stylesheet" href="src/styles/docs.css"><link rel="icon" href="data:,"></head><body><header class="topbar"><a class="brand" href="index.html">葵花码</a><a class="help-link" href="guide.html">使用说明</a></header><main class="guide"><a class="back" href="index.html">← 返回生成器</a><h1>葵花码算法说明</h1><nav class="doc-toc" aria-label="目录"><a href="#section-1">1. 处理流程</a><a href="#section-2">2. 输入校验</a><a href="#section-3">3. 载荷编码</a><a href="#section-4">4. 容量与自动选择</a><a href="#section-5">5. 补齐数据字节</a><a href="#section-6">6. Reed–Solomon 纠错</a><a href="#section-7">7. 放射矩阵与固定表</a><a href="#section-8">8. 掩码评分</a><a href="#section-9">9. 回读校验</a><a href="#section-10">10. SVG 几何绘制</a><a href="#section-11">11. 导出和交互状态</a><a href="#section-12">12. 完整计算示例</a><a href="#section-13">13. 复杂度与复用接口</a><a href="#section-14">14. 浏览器自动转链</a><a href="#section-15">15. 二维码图片转换</a></nav>
+<p>本文描述当前实现实际执行的算法。网页链接可手动输入，也可从上传的普通二维码图片中识别。编码以 HTTP/HTTPS 网页链接为输入，以放射状二值矩阵为中间结果，最后输出 SVG 或 PNG。编码与绘图在浏览器中完成，超容量时通过is.gd申请短链接。</p>
 <h2 id="section-1">1. 处理流程</h2>
 <pre><code>
 链接校验
@@ -364,33 +364,10 @@ const svg = SunflowerCode.renderSvg(result, { size: 1024, avatar: &#x27;&#x27; }
 
 </code></pre>
 <p><code>encode</code> 成功时返回版本、等级、掩码、矩阵、评分、输入文本、载荷位数、数据容量和交织码字；失败时抛出错误。<code>avatar</code> 必须为空或本地 PNG/JPEG/WebP 的 Base64 data URL。图像识别、目标网页访问与受损码修复不属于这三个接口的功能。</p>
-<h2 id="section-14">14. 自动转链与密钥配置</h2>
-<h3>14.1 调用条件</h3>
-<p>点击“生成葵花码”或二维码识别成功后，固定本次网址与编码参数。首先执行 <code>encode</code>，仅 <code>CapacityError</code> 会启动转链，格式或设置错误不提交网络请求。</p>
-<p>没有配置转链服务时，显示具体原因与“设置转链服务”入口。容量内内容仍可完全本地生成。</p>
-<h3>14.2 服务调用</h3>
-<p><code>src/services/shortener.js</code> 独立管理接口、缓存与限流：</p>
-<ul>
-<li>服务端模式：公共 <code>config.js</code> 只提供同源相对路径 <code>/api/shorten</code>。浏览器发送 <code>{ &quot;content&quot;: &quot;原网址&quot; }</code>，由服务器添加 Bearer Token 调用 <code>https://api.acedata.cloud/shorturl</code>。</li>
-<li>个人直连模式：在设置对话框填写自己的 Token，客户端在 HTTPS 请求的 Authorization 头中发送。Token 仅保存在当前页面内存，刷新后清除。</li>
-</ul>
-<p>请求方法为 POST，JSON 序列化保留中文、百分号、查询参数与片段，不截断原网址。客户端不携带 Cookie 或 Referer。跨域个人直连需要服务商支持 CORS 预检。</p>
-<p>成功响应：</p>
-<pre><code>
-{&quot;success&quot;:true,&quot;data&quot;:{&quot;url&quot;:&quot;https://surl.id/r/Abc123&quot;}}
-
-</code></pre>
-<p>HTTP 429 触发 60 秒冷却；401/403 提示认证失败；402 提示检查余额或配额；503 提示服务未就绪。其他响应同时检查 HTTP 状态与 <code>success === true</code>，非 JSON、网络错误和超时单独处理，不向页面透传服务商原始报错。</p>
-<h3>14.3 结果校验</h3>
-<p>短链必须符合 <code>https://surl.id/r/</code> 加 1～64 个字母、数字、下划线或连字符的形式，拒绝额外域名、协议、查询与片段。校验通过后按原射线和纠错重新编码；若仍装不下提示改为自动，不递归缩短。</p>
-<p>界面不展示短链地址，PNG/SVG 编码短链，输入框保留原网址。短链的跳转由服务商完成，不需要扫码者提供 Token。</p>
-<h3>14.4 缓存与并发</h3>
-<p>成功映射在当前页面 Map 中缓存，最多 256 条，满后移除最早记录；失败不缓存，刷新或更换个人 Token 时清空。服务商仍可能保留已生成短链。</p>
-<p>转链期间禁止重复提交。修改输入、编码参数或选择新二维码后，AbortController 取消旧任务等待，任务版本号防止迟到响应更新页面。前端等待约 25 秒，上游服务可能已收到被取消的请求。</p>
-<h3>14.5 服务端边界</h3>
-<p><code>scripts/server.mjs</code> 仅提供白名单静态资源和固定的转链接口，不提供任意文件访问或任意 URL 代理。Token 来自环境变量或被 Git 忽略的 <code>.env.local</code>，不下发到浏览器，不进入静态构建和发布包。</p>
-<p>接口要求同源 Origin 和 JSON POST，限制请求体 32 KiB、原网址 5000 个 UTF-16 代码单元，并再次验证 HTTP/HTTPS。每个 TCP 来源 IP 每分钟最多 30 次请求；固定上游请求超时 20 秒。响应只返回验证后的短链或通用错误，不回传密钥或上游任意字段。公开部署还应增加站点自身认证和限流。</p>
-<p>Cloudflare Pages 使用 <code>npm run build:pages</code>，将 <code>cloudflare/worker.mjs</code> 输出为 <code>_worker.js</code>，通过运行时 <code>env.ACEDATA_TOKEN</code> 读取机密；同源检查自动使用当前访问域名。其内存限流仅在单个 isolate 内有效，不保证跨节点全局限流。普通静态部署可使用个人直连模式，或连接自行部署的同源接口。构建会加入资源内容摘要，源码不硬编码账号。具体见 docs/deployment.md。第三方额度、有效期与网络可达性以服务商和实机结果为准。</p>
+<h2 id="section-14">14. 浏览器自动转链</h2>
+<p>浏览器先用原网址编码。只有超出容量时，才向 <code>https://is.gd/create.php</code> 提交 POST 表单，字段为 <code>format=json</code> 和 <code>url=原网址</code>。请求不含密钥、Cookie 或 Referer，禁止重定向，20 秒超时。</p>
+<p>只接受响应 <code>shorturl</code> 中形如 <code>https://is.gd/Abc123</code> 的地址。编号为 5～30 个字母、数字或下划线。按原射线与纠错设置重新编码，若仍放不下，提示改用自动设置。历史图片无需重新生成，旧短链由原服务商负责跳转。</p>
+<p>成功结果仅缓存在当前页面内存，最多 256 条。更改输入后取消旧任务，失败不缓存。HTTP 429 或 JSON 错误码 3 表示触发限流，至少等待一分钟再试。容量内网址仍可继续生成。</p>
 <h2 id="section-15">15. 二维码图片转换</h2>
 <h3>15.1 读取与预处理</h3>
 <p><code>src/services/qr-reader.js</code> 提供 <code>SunflowerQR.read(file, signal)</code>，返回识别文本。图片仅通过本地 Blob URL 加载；只接受 PNG、JPEG、WebP，文件上限 10 MB，解码后像素总数上限 4000 万。图片加载超过 15 秒则报错。</p>
@@ -401,7 +378,7 @@ const svg = SunflowerCode.renderSvg(result, { size: 1024, avatar: &#x27;&#x27; }
 <p>这些步骤处理的是输入的普通 QR Code，与后续葵花码的数据布局和绘制算法不同。当前取 jsQR 首个成功解码的文本；多码图片不会列出候选或保证选择顺序，因此应先裁剪为单个二维码。</p>
 <h3>15.3 内容校验与自动生成</h3>
 <p>识别成功不代表内容可生成葵花码。识别文本先经过同一个 <code>SunflowerCode.validateUrl</code>：仅接受 HTTP/HTTPS，遵循现有长度和格式限制。普通文字、Wi-Fi 内容及其他协议均报错，不自动跳转、不提交给短链服务。</p>
-<p>校验通过后，把原链接填入输入框，调用既有 <code>generate()</code>，沿用当前头像、尺寸、射线和纠错。仅容量错误触发第 14 节的 Ace Data 自动转链。页面展示来源文件名与“查看链接”入口，不展示短链地址。</p>
+<p>校验通过后，把原链接填入输入框，调用既有 <code>generate()</code>，沿用当前头像、尺寸、射线和纠错。仅容量错误触发第 14 节的 is.gd 自动转链。页面展示来源文件名与“查看链接”入口，不展示短链地址。</p>
 <h3>15.4 并发与资源回收</h3>
 <p>每次图片选择创建一个 AbortController。开始识别时使旧预览失效、禁用导出；输入变动、编码参数变动、新图片选择或离开页面均取消旧任务。图片加载、每轮像素分析以及结果写入前检查取消状态，只有当前任务可以更新输入或显示错误。读取库的单轮同步解码不能中途打断，但分析尺寸有上限，迟到结果也不会覆盖新任务。</p>
 <p>无论成功、失败或取消都释放 Blob URL；分析完成后缩小临时 Canvas 以释放像素缓冲。选择后清空文件输入框，使同一张图片也可再次上传。识别失败时保留原网址和设置，由用户更换图片或重新生成。</p>

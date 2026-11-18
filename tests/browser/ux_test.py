@@ -26,22 +26,18 @@ with sync_playwright() as p:
   }''',{'encoded':encoded,'action':action})
   expect(page.locator('#png')).to_be_enabled();expect(page.locator('#url')).to_have_value(url);expect(page.locator('#qr-source')).to_be_visible()
  page.click('#edit-qr-link');expect(page.locator('#panel-link')).to_be_visible();expect(page.locator('#url')).to_be_focused()
- page.fill('#url','https://example.com/?long='+'a'*180);page.click('#generate');expect(page.locator('#configure-error')).to_be_visible()
- page.click('#configure-error');expect(page.locator('#service-dialog')).to_be_visible();page.fill('#service-token','ux-test-token');page.locator('#service-form button[type=submit]').click();expect(page.locator('#service-dialog')).not_to_be_visible()
+ expect(page.locator('#service-token')).to_have_count(0)
  assert page.evaluate('localStorage.length')==0 and page.evaluate('sessionStorage.length')==0
- page.locator('.settings').evaluate('(el)=>el.open=true');page.click('#open-service');page.click('#clear-service');expect(page.locator('#service-feedback')).to_have_text('个人 Token 已清除。');page.keyboard.press('Escape');expect(page.locator('#service-dialog')).not_to_be_visible()
- page.reload();assert page.evaluate('SunflowerShortener.configured()') is False
  for width in [320,390,768,1024,1440]:
   page.set_viewport_size({'width':width,'height':900});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
   page.click('#tab-qr');assert page.locator('#choose-qr').bounding_box()['width']>200
   page.locator('.settings').evaluate('(el)=>el.open=true')
   for id in ['version','level']:assert page.locator('#'+id).bounding_box()['height']>=44
   page.locator('.settings').evaluate('(el)=>el.open=false')
-  page.locator('.settings').evaluate('(el)=>el.open=true');page.click('#open-service');assert page.locator('#service-dialog').bounding_box()['width']<=width;page.keyboard.press('Escape')
  for name in ['guide.html','algorithm.html']:
   page.goto(BASE+'/'+name);page.wait_for_load_state('networkidle')
   assert page.evaluate("Array.from(document.querySelectorAll('a[href^=\"#\"]')).every(a=>document.getElementById(a.hash.slice(1)))")
   page.set_viewport_size({'width':390,'height':844});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
  assert not errors,errors
  browser.close()
-print('PASS: empty/error/stale/ready states, mobile result scroll, keyboard tabs, drag/drop, paste, token dialog/clearing, no persistent credentials, docs/layout')
+print('PASS: empty/error/stale/ready states, mobile result scroll, keyboard tabs, drag/drop, paste, no persistent credentials, docs/layout')

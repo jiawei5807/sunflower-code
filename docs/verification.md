@@ -1,5 +1,8 @@
 # 验收记录
 
+2026-11-18 起使用 is.gd 浏览器直连，下文 Ace Data 与 Pages Functions 结果为旧版本的验收记录。
+
+
 验证环境：2026-11-04，Node.js 22、Chromium、Python Playwright。
 
 ## 自动化验证
