@@ -2,7 +2,7 @@
 import os, subprocess, time, urllib.request
 from pathlib import Path
 root=Path(__file__).resolve().parents[1]
-env={**os.environ,'PORT':'5178','ACEDATA_TOKEN':'','SUNFLOWER_BASE_URL':'http://127.0.0.1:5178'}
+env={**os.environ,'PORT':'5178','SUNFLOWER_BASE_URL':'http://127.0.0.1:5178'}
 server=subprocess.Popen(['node','scripts/server.mjs'],cwd=root,env=env)
 try:
  for attempt in range(40):

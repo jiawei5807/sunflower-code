@@ -8,7 +8,6 @@
     <title>葵花码 · 链接转图片</title>
     <link rel="icon" href="data:," />
     <link rel="stylesheet" href="src/styles/app.css" />
-    <script defer src="config.js"></script>
     <script defer src="src/core/protocol-data.js"></script>
     <script defer src="src/core/codec.js"></script>
     <script defer src="vendor/jsQR-1.4.0.js"></script>
@@ -110,9 +109,6 @@
             </div>
             <div class="error-box" id="error-box" hidden>
               <p id="error" role="alert"></p>
-              <button type="button" id="configure-error" class="inline-button" hidden>
-                设置转链服务 →
-              </button>
             </div>
             <button class="primary generate" id="generate" type="submit">
               <span id="generate-label">生成葵花码</span><span aria-hidden="true">↗</span>
@@ -164,9 +160,7 @@
                 >
               </div>
               <p class="field-hint">射线越多，容量越大；纠错越高，可容纳的内容越少。</p>
-              <div class="service-setting">
-                <button id="open-service" class="inline-button" type="button">自动转链设置</button>
-              </div>
+              <p class="field-hint">超出容量时，浏览器会将原网址提交至 is.gd 生成短链。</p>
             </details>
           </div>
         </section>
@@ -203,32 +197,6 @@
         </section>
       </div>
     </main>
-    <dialog id="service-dialog" aria-labelledby="service-title">
-      <form id="service-form">
-        <div class="dialog-heading">
-          <h2 id="service-title">自动转链</h2>
-          <button id="close-service" type="button" class="icon-button" aria-label="关闭设置">
-            ×
-          </button>
-        </div>
-        <p>网址超过容量时，转为短链接后再生成。原网址会提交给 Ace Data。</p>
-        <p id="server-service-note" class="service-note" hidden>此站点已配置转链服务，无需填写。</p>
-        <label class="field-label" for="service-token"
-          >个人 Token <span class="optional">可选</span></label
-        ><input
-          id="service-token"
-          type="password"
-          autocomplete="off"
-          placeholder="填写你的 Ace Data Token"
-        />
-        <p class="field-hint">仅当前页面有效，刷新后清除。不要填写他人的 Token。</p>
-        <p id="service-feedback" role="status"></p>
-        <div class="dialog-actions">
-          <button type="button" id="clear-service">清除</button
-          ><button class="primary" type="submit">完成</button>
-        </div>
-      </form>
-    </dialog>
     <noscript><p>请启用 JavaScript 后使用生成器。</p></noscript>
   </body>
 </html>

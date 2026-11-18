@@ -16,11 +16,10 @@
     qrRequest = null;
   const shortener = SunflowerShortener;
   let sourceMode = 'link';
-  const error = (message, configure = false) => {
+  const error = (message) => {
     $('error').textContent = message;
     $('error-box').hidden = !message;
     $('url').setAttribute('aria-invalid', String(Boolean(message)));
-    $('configure-error').hidden = !configure;
     if (message) {
       $('result-badge').textContent = '需要处理';
       $('result-badge').dataset.state = 'error';
@@ -166,10 +165,7 @@
       }
     } catch (cause) {
       if (current !== revision) return;
-      error(
-        timedOut ? '转链超时，请稍后重试。' : cause.message,
-        cause.code === 'SHORTENER_NOT_CONFIGURED',
-      );
+      error(timedOut ? '转链超时，请稍后重试。' : cause.message);
       status('请检查链接或重试', true);
     } finally {
       clearTimeout(timeout);
@@ -392,7 +388,7 @@
     });
   $('choose-qr').addEventListener('drop', (event) => importQR(event.dataTransfer.files[0]));
   document.addEventListener('paste', (event) => {
-    if (sourceMode !== 'qr' || $('service-dialog').open) return;
+    if (sourceMode !== 'qr') return;
     const item = [...event.clipboardData.items].find(
       (item) => item.kind === 'file' && item.type.startsWith('image/'),
     );
@@ -401,30 +397,4 @@
       importQR(item.getAsFile());
     }
   });
-  function serviceState() {
-    $('server-service-note').hidden = !shortener.serverConfigured();
-    $('open-service').hidden = shortener.serverConfigured();
-  }
-  const openService = () => {
-    $('service-feedback').textContent = '';
-    $('service-token').value = '';
-    $('service-dialog').showModal();
-  };
-  $('open-service').addEventListener('click', openService);
-  $('configure-error').addEventListener('click', openService);
-  $('close-service').addEventListener('click', () => $('service-dialog').close());
-  $('service-form').addEventListener('submit', (event) => {
-    event.preventDefault();
-    if ($('service-token').value.trim()) shortener.setToken($('service-token').value);
-    $('service-token').value = '';
-    serviceState();
-    $('service-dialog').close();
-  });
-  $('clear-service').addEventListener('click', () => {
-    shortener.setToken('');
-    $('service-token').value = '';
-    $('service-feedback').textContent = '个人 Token 已清除。';
-    serviceState();
-  });
-  serviceState();
 })();
