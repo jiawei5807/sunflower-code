@@ -25,7 +25,6 @@ const mf = new Miniflare({
   bindings: {
     ADMIN_USERNAME: env.ADMIN_USERNAME || 'admin',
     ADMIN_PASSWORD: env.ADMIN_PASSWORD || '',
-    ACEDATA_TOKEN: env.ACEDATA_TOKEN || '',
   },
   serviceBindings: {
     ASSETS: async (request) => {

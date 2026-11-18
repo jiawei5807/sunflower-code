@@ -17,7 +17,6 @@ async function setup(t, beforeSecurity) {
     bindings: {
       ADMIN_USERNAME: 'admin',
       ADMIN_PASSWORD: password,
-      ACEDATA_TOKEN: 'private-test-token',
     },
     serviceBindings: {
       ASSETS: (request) => {
@@ -29,7 +28,7 @@ async function setup(t, beforeSecurity) {
     },
     outboundService: async () => {
       calls++;
-      throw Error('Server must not contact Ace Data');
+      throw Error('Server must not contact the shortener');
     },
   });
   t.after(() => mf.dispose());
@@ -516,28 +515,13 @@ test('history pagination and date statistics use successful completion times', a
   assert.equal(stats.items[0].period, 1);
 });
 
-test('browser shortener config is authenticated; short URLs are validated and preflight never counts', async (t) => {
+test('browser short URLs are validated and preflight never counts', async (t) => {
   const s = await setup(t);
-  assert.equal((await s.call('/api/shortener/config', { method: 'POST', body: {} })).status, 401);
   const cookie = await s.login('admin');
-  assert.equal(
-    (
-      await s.call('/api/shortener/config', {
-        method: 'POST',
-        cookie,
-        body: {},
-        origin: 'https://evil.test',
-      })
-    ).status,
-    403,
-  );
-  const config = await s.call('/api/shortener/config', { method: 'POST', cookie, body: {} });
-  assert.equal(config.status, 200);
-  assert.equal(config.headers.get('cache-control'), 'no-store');
-  assert.equal((await config.json()).token, 'private-test-token');
+  assert.equal((await s.call('/api/shortener/config', { method: 'POST', cookie, body: {} })).status, 404);
   const body = { content: 'https://example.com/?q=' + 'a'.repeat(200), size: 512 };
   let i = 0;
-  for (const shortUrl of ['https://surl.id/Abc123', 'https://surl.id/r/Abc123']) {
+  for (const shortUrl of ['https://is.gd/Abc123', 'https://surl.id/Abc123', 'https://surl.id/r/Abc123']) {
     const key = 'client-short-test-' + ++i;
     const send = (data) => s.call('/api/generate', { method: 'POST', cookie, body: data, key });
     const preflight = await send(body);
@@ -558,6 +542,9 @@ test('browser shortener config is authenticated; short URLs are validated and pr
     assert.equal((await send({ ...body, shortUrl: 'https://surl.id/Changed' })).status, 409);
   }
   for (const shortUrl of [
+    'https://is.gd.evil.test/Abc123',
+    'https://is.gd/Abc123?x=1',
+    'https://is.gd/a/b',
     'https://surl.id.evil.test/Abc123',
     'http://surl.id/Abc123',
     'https://surl.id/Abc123?secret=x',
@@ -585,7 +572,7 @@ test('browser shortener config is authenticated; short URLs are validated and pr
     ).status,
     400,
   );
-  assert.equal((await (await s.call('/api/history', { cookie })).json()).total, 2);
+  assert.equal((await (await s.call('/api/history', { cookie })).json()).total, 3);
   assert.equal(s.calls, 0);
 });
 

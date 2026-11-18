@@ -54,19 +54,17 @@ with sync_playwright() as p:
  admin.click('#admin-tab-accounts')
  visitor.close()
  user=browser.new_page(viewport={'width':390,'height':844},reduced_motion='reduce');user.on('pageerror',lambda e:errors.append(str(e)))
- external=[];external_status=[200];external_url=['https://surl.id/TestCode12'];external_abort=[False];external_hold=[False];held=[]
+ external=[];external_status=[200];external_url=['https://is.gd/Tst123'];external_abort=[False];external_hold=[False];held=[]
  def shorten(route):
   request=route.request
-  if request.method=='OPTIONS':
-   route.fulfill(status=204,headers={'access-control-allow-origin':'*','access-control-allow-headers':'authorization,content-type','access-control-allow-methods':'POST'});return
   external.append(request)
-  assert request.headers.get('authorization')=='Bearer test-only-token'
-  assert not request.headers.get('cookie') and not request.headers.get('referer')
-  assert 'content' in request.post_data_json
+  assert request.method=='POST' and request.headers['content-type'].startswith('application/x-www-form-urlencoded')
+  assert not any(request.headers.get(h) for h in ('authorization','cookie','referer'))
+  assert request.post_data_json == {'format':'json','url':user.locator('#url').input_value()}
   if external_hold[0]:held.append(route);return
   if external_abort[0]:route.abort();return
-  route.fulfill(status=external_status[0],headers={'access-control-allow-origin':'*','content-type':'application/json'},body=json.dumps({'success':True,'data':{'url':external_url[0]}}) if external_status[0]==200 else 'sensitive-upstream-detail')
- user.route('https://api.acedata.cloud/shorturl',shorten)
+  route.fulfill(status=external_status[0],headers={'access-control-allow-origin':'*','content-type':'application/json'},body=json.dumps({'shorturl':external_url[0]}) if external_status[0]==200 else 'sensitive-upstream-detail')
+ user.route('https://is.gd/create.php',shorten)
  user.goto(links[0]);expect(user.locator('#auth-title')).to_have_text('创建账号');assert 'invite=' not in user.url
  user.fill('#auth-username','browser_user');user.fill('#auth-password',PASSWORD);user.fill('#auth-confirm',PASSWORD);user.click('#auth-submit');expect(user.locator('#auth-help')).to_have_text('注册成功。')
  user.click('#auth-switch');user.fill('#auth-username','browser_user');user.fill('#auth-password',PASSWORD);user.click('#auth-submit');expect(user.locator('#current-user')).to_have_text('browser_user');expect(user.locator('#admin-link')).to_be_hidden()
@@ -88,7 +86,8 @@ with sync_playwright() as p:
  assert len(external)==1
  # Provider failures remain in the client, preserve login, and do not save history.
  user.click('#tab-link')
- for status in [401,402,403,429,500]:
+ for status in [403,500]:
+  user.fill('#url','https://example.com/?q='+'b'*180+str(status))
   external_status[0]=status
   user.click('#generate');expect(user.locator('#error')).to_contain_text('HTTP '+str(status));assert user.url==BASE+'/'
   assert 'sensitive-upstream-detail' not in user.locator('#error').inner_text()
@@ -105,7 +104,7 @@ with sync_playwright() as p:
   user.wait_for_timeout(50)
  assert held and user.locator('#generate').is_disabled()
  user.fill('#url','https://example.com/changed')
- held[0].fulfill(status=200,headers={'access-control-allow-origin':'*','content-type':'application/json'},body=json.dumps({'success':True,'data':{'url':'https://surl.id/LateCode12'}}))
+ held[0].fulfill(status=200,headers={'access-control-allow-origin':'*','content-type':'application/json'},body=json.dumps({'shorturl':'https://is.gd/Late12'}))
  expect(user.locator('#result-badge')).to_have_text('待生成');expect(user.locator('#png')).to_be_disabled()
  external_hold[0]=False
  user.locator('nav a[href="/history"]').click();expect(user.locator('.history-card')).to_have_count(2)

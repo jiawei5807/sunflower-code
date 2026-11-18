@@ -1,52 +1,47 @@
 /* SPDX-License-Identifier: MIT */
 'use strict';
-globalThis.SunflowerShortener = {
-  async shorten(content, signal) {
-    // No persistence: the credential is visible to the signed-in browser for this request.
-    const { token } = await AppAPI.request('/api/shortener/config', {
-      method: 'POST',
-      body: {},
-      signal,
-    });
+(() => {
+  const cache = new Map();
+  let limitedUntil = 0;
+  const limitMessage = '转链请求过于频繁，请至少等待一分钟后重试。';
+
+  async function shorten(url, signal) {
+    if (cache.has(url)) return cache.get(url);
+    if (Date.now() < limitedUntil) throw new Error(limitMessage);
+
     const requestSignal = AbortSignal.any([signal, AbortSignal.timeout(20000)]);
-    let response;
+    let response, result;
     try {
-      response = await fetch('https://api.acedata.cloud/shorturl', {
+      response = await fetch('https://is.gd/create.php', {
         method: 'POST',
-        headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-        body: JSON.stringify({ content }),
+        body: new URLSearchParams({ format: 'json', url }),
         credentials: 'omit',
         referrerPolicy: 'no-referrer',
         redirect: 'error',
         signal: requestSignal,
       });
+      if (response.ok) result = await response.json();
     } catch (error) {
       if (signal.aborted) throw error;
       if (requestSignal.aborted) throw new Error('转链超时，请稍后重试。');
-      throw new Error('浏览器无法连接转链服务，请检查网络或服务商跨域访问设置。');
+      if (error instanceof SyntaxError) throw new Error('转链服务返回异常，请稍后重试。');
+      throw new Error('浏览器无法连接转链服务，请检查网络或稍后重试。');
     }
-    if (!response.ok) {
-      const errors = {
-        401: '转链认证失败（HTTP 401），请管理员检查 ACEDATA_TOKEN。',
-        402: '转链账户余额或额度不足（HTTP 402），请管理员检查账户。',
-        403: '转链服务拒绝访问（HTTP 403），请管理员检查接口权限或访问限制。',
-        429: '转链服务请求过于频繁（HTTP 429），请稍后重试。',
-      };
-      throw new Error(
-        errors[response.status] || `转链服务返回异常（HTTP ${response.status}），请稍后重试。`,
-      );
+    if (response.status === 429 || result?.errorcode === 3) {
+      limitedUntil = Date.now() + 60000;
+      throw new Error(limitMessage);
     }
-    let result;
-    try {
-      result = await response.json();
-    } catch {
-      throw new Error('转链服务返回异常，请稍后重试。');
+    if (!response.ok) throw new Error('转链服务返回 HTTP ' + response.status + '，请稍后重试。');
+    if (result?.errorcode != null) {
+      if (result.errorcode === 1) throw new Error('转链失败，服务商未接受这个网址，请检查原链接。');
+      throw new Error('转链失败，请稍后重试。');
     }
-    if (
-      result?.success !== true ||
-      !/^https:\/\/surl\.id\/(?:r\/)?[A-Za-z0-9_-]{1,64}$/.test(result?.data?.url || '')
-    )
-      throw new Error('转链服务返回的短链无效，请联系管理员。');
-    return result.data.url;
-  },
-};
+    const shortUrl = result?.shorturl;
+    if (typeof shortUrl !== 'string' || !/^https:\/\/is\.gd\/[A-Za-z0-9_]{5,30}$/.test(shortUrl))
+      throw new Error('转链服务返回的短链无效，请重试。');
+    if (cache.size >= 256) cache.delete(cache.keys().next().value);
+    cache.set(url, shortUrl);
+    return shortUrl;
+  }
+  globalThis.SunflowerShortener = { shorten };
+})();
