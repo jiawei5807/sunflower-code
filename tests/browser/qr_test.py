@@ -1,15 +1,15 @@
 """Requires Python Playwright, qrcode and Pillow. Provider calls are mocked."""
-import io, json, os
+import io, os
 from pathlib import Path
 import qrcode
 from PIL import Image, ImageOps
 from playwright.sync_api import sync_playwright, expect
 
 BASE=os.environ.get('SUNFLOWER_BASE_URL','http://127.0.0.1:5173')
-API='https://is.gd/create.php'
+API='https://da.gd/s'
 URL='https://example.com'
 LONG='https://example.com/?q='+'a'*180+'&name=中文&literal=a%26b#details'
-SHORT='https://is.gd/Test12'
+SHORT='https://da.gd/Test12'
 
 def qr(text):
  code=qrcode.QRCode(error_correction=qrcode.constants.ERROR_CORRECT_M,box_size=8,border=4)
@@ -36,7 +36,7 @@ with sync_playwright() as p:
   request=route.request
   assert request.method=='POST' and request.headers['content-type'].startswith('application/x-www-form-urlencoded')
   calls.append(request.post_data_json)
-  route.fulfill(status=200,content_type='application/json',headers={'Access-Control-Allow-Origin':'*'},body=json.dumps({'shorturl':SHORT}))
+  route.fulfill(status=200,content_type='text/plain',headers={'Access-Control-Allow-Origin':'*'},body=SHORT+'\n')
  page.route(API,shorten)
  page.goto(BASE);page.wait_for_load_state('networkidle');expect(page.locator('#png')).to_be_disabled();page.click('#tab-qr')
  with page.expect_file_chooser() as chooser:page.click('#choose-qr')
@@ -53,7 +53,7 @@ with sync_playwright() as p:
  upload(page,qr(URL));check(page,URL);expect(page.locator('#code-info')).to_contain_text('72 条射线')
  page.select_option('#version','auto');page.select_option('#level','auto')
  upload(page,qr(LONG));expect(page.locator('#url')).to_have_value(LONG);check(page,SHORT)
- assert calls==[{'format':'json','url':LONG}]
+ assert calls==[{'url':LONG}]
  upload(page,qr(LONG));check(page,SHORT);assert len(calls)==1
  for content in ['plain text','javascript:alert(1)','#小程序://测试/Abc','https://']:
   upload(page,qr(content));expect(page.locator('#error')).to_contain_text('二维码内容无法转换');expect(page.locator('#png')).to_be_disabled();expect(page.locator('#url')).to_have_value(LONG)
@@ -79,7 +79,7 @@ with sync_playwright() as p:
  page.click('#tab-link');page.fill('#url',LONG+'other');page.click('#generate');expect(page.locator('#generate')).to_be_disabled()
  page.wait_for_timeout(100);assert len(held)==1
  upload(page,qr(URL));expect(page.locator('#url')).to_have_value(URL);check(page,URL)
- held[0].fulfill(status=200,content_type='application/json',headers={'Access-Control-Allow-Origin':'*'},body=json.dumps({'shorturl':SHORT}))
+ held[0].fulfill(status=200,content_type='text/plain',headers={'Access-Control-Allow-Origin':'*'},body=SHORT+'\n')
  page.wait_for_timeout(100);check(page,URL)
  page.reload();expect(page.locator('#png')).to_be_disabled();page.click('#example');expect(page.locator('#png')).to_be_enabled()
  Path('test-results').mkdir(exist_ok=True);page.screenshot(path='test-results/desktop.png',full_page=True)
