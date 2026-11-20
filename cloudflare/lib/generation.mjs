@@ -63,7 +63,10 @@ export async function generate(env, user, body, request) {
   const shortUrl = body.shortUrl ?? '';
   if (
     typeof shortUrl !== 'string' ||
-    (shortUrl && !/^https:\/\/(?:is\.gd\/[A-Za-z0-9_]{5,30}|surl\.id\/(?:r\/)?[A-Za-z0-9_-]{1,64})$/.test(shortUrl))
+    (shortUrl &&
+      !/^https:\/\/(?:da\.gd\/[A-Za-z0-9_-]{1,10}|is\.gd\/[A-Za-z0-9_]{5,30}|surl\.id\/(?:r\/)?[A-Za-z0-9_-]{1,64})$/.test(
+        shortUrl,
+      ))
   )
     throw new HttpError(400, '短链格式无效。', 'SHORTENER_BAD_RESPONSE');
   const key = request.headers.get('idempotency-key');
