@@ -1,12 +1,11 @@
-"""Pure-frontend shortening checks; is.gd responses are mocked, no provider writes."""
-import json
+"""Pure-frontend shortening checks; da.gd responses are mocked, no provider writes."""
 from pathlib import Path
 import os
 from playwright.sync_api import sync_playwright,expect
 
 BASE=os.environ.get('SUNFLOWER_BASE_URL','http://127.0.0.1:5173')
-API='https://is.gd/create.php'
-SHORT='https://is.gd/Test12'
+API='https://da.gd/s'
+SHORT='https://da.gd/Test12'
 LONG='https://example.com/?q='+'a'*160+'&name=中文&literal=a%26b#details'
 def check_short_result(page):
  expected=page.evaluate("shortUrl => SunflowerCode.renderSvg(SunflowerCode.encode(shortUrl), {size: 1024, avatar: ''})",SHORT)
@@ -21,46 +20,47 @@ with sync_playwright() as p:
  page.on('pageerror',lambda e:errors.append(str(e)))
  page.on('request',lambda r:requests.append(r.url))
  def respond(route,data,status=200):
-  route.fulfill(status=status,content_type='application/json',headers={'Access-Control-Allow-Origin':'*'},body=json.dumps(data))
+  route.fulfill(status=status,content_type='text/plain',headers={'Access-Control-Allow-Origin':'*'},body=data)
  def reply(route):
   request=route.request
   assert request.method=='POST'
   assert request.headers['content-type'].startswith('application/x-www-form-urlencoded')
+  assert request.headers.get('accept')=='text/plain'
   assert 'authorization' not in request.headers
   assert 'cookie' not in request.headers
   assert 'referer' not in request.headers
   calls.append(request.post_data_json)
-  respond(route,{'shorturl':SHORT})
+  respond(route,SHORT+'\n')
  page.route(API,reply)
  page.goto(BASE);expect(page.locator('#png')).to_be_disabled();page.click('#example');expect(page.locator('#png')).to_be_enabled();assert calls==[]
  for text in ['#小程序://测试/Abc','weixin://abc','example.com','plain text']:
   page.fill('#url',text);page.click('#generate');expect(page.locator('#error')).to_contain_text('https:// 或 http://');assert calls==[]
  page.fill('#url',LONG);page.click('#generate');expect(page.locator('#png')).to_be_enabled()
  check_short_result(page);expect(page.locator('#url')).to_have_value(LONG)
- assert calls==[{'format':'json','url':LONG}]
+ assert calls==[{'url':LONG}]
  expect(page.locator('#code-info')).to_contain_text('36 条射线')
  page.click('#generate');expect(page.locator('#png')).to_be_enabled();assert len(calls)==1
  page.locator('.settings summary').click();page.select_option('#version','0');page.select_option('#level','H');page.click('#generate')
  expect(page.locator('#error')).to_contain_text('短链接仍超出');expect(page.locator('#png')).to_be_disabled();assert len(calls)==1
  page.select_option('#version','auto');page.select_option('#level','auto');page.click('#generate');expect(page.locator('#png')).to_be_enabled()
- # Provider errors may use HTTP 200. They are not cacheable successes.
- page.unroute(API);page.route(API,lambda r:respond(r,{'errorcode':1,'errormessage':'invalid'}))
- page.fill('#url',LONG+'b');page.click('#generate');expect(page.locator('#error')).to_contain_text('转链失败');expect(page.locator('#url')).to_have_value(LONG+'b');expect(page.locator('#generate')).to_be_enabled();expect(page.locator('#png')).to_be_disabled()
+ # Plain-text HTTP 400 errors are not cacheable and must not expose upstream details.
+ page.unroute(API);page.route(API,lambda r:respond(r,'invalid private upstream detail',400))
+ page.fill('#url',LONG+'b');page.click('#generate');expect(page.locator('#error')).to_contain_text('HTTP 400');expect(page.locator('#url')).to_have_value(LONG+'b');expect(page.locator('#generate')).to_be_enabled();expect(page.locator('#png')).to_be_disabled()
  page.unroute(API);page.route(API,reply);page.click('#generate');expect(page.locator('#png')).to_be_enabled()
  for status_code,message in [(403,'HTTP 403'),(503,'HTTP 503')]:
   page.unroute(API);page.route(API,lambda r,request,status_code=status_code:r.fulfill(status=status_code,headers={'Access-Control-Allow-Origin':'*'},content_type='text/plain',body='denied'))
   page.fill('#url',LONG+str(status_code));page.click('#generate');expect(page.locator('#error')).to_contain_text(message);expect(page.locator('#png')).to_be_disabled()
- for value in ['https://unexpected.test/abcde','javascript:alert(1)',SHORT+'#extra',SHORT+'?x=1','https://is.gd.evil.test/abcde',None]:
-  page.unroute(API);page.route(API,lambda r,request,value=value:respond(r,{'shorturl':value}))
-  page.fill('#url',LONG+str(value));page.click('#generate');expect(page.locator('#error')).to_contain_text('短链无效');expect(page.locator('#png')).to_be_disabled();expect(page.locator('#short-link-result')).to_have_count(0)
+ for index,value in enumerate(['https://unexpected.test/abcde','javascript:alert(1)',SHORT+'#extra',SHORT+'?x=1','https://da.gd.evil.test/abcde','', 'http://da.gd/Test12', 'https://da.gd/12345678901', SHORT+'\nhttps://evil.test', '{"shorturl":"'+SHORT+'"}']):
+  page.unroute(API);page.route(API,lambda r,request,value=value:respond(r,value))
+  page.fill('#url',LONG+'invalid-response-'+str(index));page.click('#generate');expect(page.locator('#error')).to_contain_text('短链无效');expect(page.locator('#png')).to_be_disabled();expect(page.locator('#short-link-result')).to_have_count(0)
  page.unroute(API);page.route(API,lambda r:r.fulfill(status=200,headers={'Access-Control-Allow-Origin':'*'},content_type='text/html',body='<html>unavailable</html>'))
- page.fill('#url',LONG+'html');page.click('#generate');expect(page.locator('#error')).to_contain_text('返回异常')
+ page.fill('#url',LONG+'html');page.click('#generate');expect(page.locator('#error')).to_contain_text('短链无效')
  page.unroute(API);page.route(API,lambda r:r.abort())
  page.fill('#url',LONG+'offline');page.click('#generate');expect(page.locator('#error')).to_contain_text('无法连接转链服务')
  # Rate limits disable provider requests for at least a minute, even on another URL.
  limits=[]
  page.unroute(API)
- def rate_limit(route):limits.append(True);respond(route,{'errorcode':3,'errormessage':'rate limit'})
+ def rate_limit(route):limits.append(True);respond(route,'rate limit',429)
  page.route(API,rate_limit)
  page.fill('#url',LONG+'limit');page.click('#generate');expect(page.locator('#error')).to_contain_text('至少等待一分钟')
  page.fill('#url',LONG+'limit2');page.click('#generate');expect(page.locator('#error')).to_contain_text('至少等待一分钟');assert len(limits)==1
@@ -73,7 +73,7 @@ with sync_playwright() as p:
  page.evaluate("document.querySelector('#form').dispatchEvent(new Event('submit',{cancelable:true}))")
  page.wait_for_timeout(100);assert len(held)==1
  page.fill('#url','https://example.com');page.click('#generate');expect(page.locator('#png')).to_be_enabled()
- respond(held[0],{'shorturl':SHORT})
+ respond(held[0],SHORT+'\n')
  page.wait_for_timeout(100);expect(page.locator('#short-link-result')).to_have_count(0);expect(page.locator('#url')).to_have_value('https://example.com');expect(page.locator('#error')).to_be_hidden()
  page.add_init_script("const original=window.setTimeout;window.setTimeout=(f,t,...args)=>original(f,t===25000?50:t,...args)")
  page.reload();expect(page.locator('#png')).to_be_disabled();page.click('#example');expect(page.locator('#png')).to_be_enabled();page.fill('#url',LONG+'e');page.click('#generate');expect(page.locator('#error')).to_contain_text('转链超时');expect(page.locator('#generate')).to_be_enabled()
@@ -82,7 +82,7 @@ with sync_playwright() as p:
  local=browser.new_page();local.route(API,reply)
  local.goto((Path(__file__).parents[2]/'dist/index.html').resolve().as_uri())
  expect(local.locator('#png')).to_be_disabled();local.fill('#url',LONG);local.click('#generate');expect(local.locator('#png')).to_be_enabled();check_short_result(local)
- assert not any('/api/shorten' in url or 'acedata.cloud' in url for url in requests)
+ assert not any('/api/shorten' in url or 'acedata.cloud' in url or 'is.gd' in url for url in requests)
  assert not errors,errors
  browser.close()
-print('PASS: direct cross-origin form POST, no auth, exact payload, no cookies/referrer, HTTP-only, cache, manual settings, provider/network/JSON errors, cooldown, cancellation, duplicate submit, timeout, file://')
+print('PASS: direct cross-origin form POST, no auth, exact payload, no cookies/referrer, HTTP-only, cache, manual settings, provider/network/text response errors, cooldown, cancellation, duplicate submit, timeout, file://')

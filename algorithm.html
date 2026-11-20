@@ -1,5 +1,5 @@
 <!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>算法说明 · 葵花码</title><link rel="stylesheet" href="src/styles/docs.css"><link rel="icon" href="data:,"></head><body><header class="topbar"><a class="brand" href="index.html">葵花码</a><a class="help-link" href="guide.html">使用说明</a></header><main class="guide"><a class="back" href="index.html">← 返回生成器</a><h1>葵花码算法说明</h1><nav class="doc-toc" aria-label="目录"><a href="#section-1">1. 处理流程</a><a href="#section-2">2. 输入校验</a><a href="#section-3">3. 载荷编码</a><a href="#section-4">4. 容量与自动选择</a><a href="#section-5">5. 补齐数据字节</a><a href="#section-6">6. Reed–Solomon 纠错</a><a href="#section-7">7. 放射矩阵与固定表</a><a href="#section-8">8. 掩码评分</a><a href="#section-9">9. 回读校验</a><a href="#section-10">10. SVG 几何绘制</a><a href="#section-11">11. 导出和交互状态</a><a href="#section-12">12. 完整计算示例</a><a href="#section-13">13. 复杂度与复用接口</a><a href="#section-14">14. 浏览器自动转链</a><a href="#section-15">15. 二维码图片转换</a></nav>
-<p>本文描述当前实现实际执行的算法。网页链接可手动输入，也可从上传的普通二维码图片中识别。编码以 HTTP/HTTPS 网页链接为输入，以放射状二值矩阵为中间结果，最后输出 SVG 或 PNG。编码与绘图在浏览器中完成，超容量时通过is.gd申请短链接。</p>
+<p>本文描述当前实现实际执行的算法。网页链接可手动输入，也可从上传的普通二维码图片中识别。编码以 HTTP/HTTPS 网页链接为输入，以放射状二值矩阵为中间结果，最后输出 SVG 或 PNG。编码与绘图在浏览器中完成，超容量时通过 da.gd 申请短链接。</p>
 <h2 id="section-1">1. 处理流程</h2>
 <pre><code>
 链接校验
@@ -365,9 +365,9 @@ const svg = SunflowerCode.renderSvg(result, { size: 1024, avatar: &#x27;&#x27; }
 </code></pre>
 <p><code>encode</code> 成功时返回版本、等级、掩码、矩阵、评分、输入文本、载荷位数、数据容量和交织码字；失败时抛出错误。<code>avatar</code> 必须为空或本地 PNG/JPEG/WebP 的 Base64 data URL。图像识别、目标网页访问与受损码修复不属于这三个接口的功能。</p>
 <h2 id="section-14">14. 浏览器自动转链</h2>
-<p>浏览器先用原网址编码。只有超出容量时，才向 <code>https://is.gd/create.php</code> 提交 POST 表单，字段为 <code>format=json</code> 和 <code>url=原网址</code>。请求不含密钥、Cookie 或 Referer，禁止重定向，20 秒超时。</p>
-<p>只接受响应 <code>shorturl</code> 中形如 <code>https://is.gd/Abc123</code> 的地址。编号为 5～30 个字母、数字或下划线。按原射线与纠错设置重新编码，若仍放不下，提示改用自动设置。历史图片无需重新生成，旧短链由原服务商负责跳转。</p>
-<p>成功结果仅缓存在当前页面内存，最多 256 条。更改输入后取消旧任务，失败不缓存。HTTP 429 或 JSON 错误码 3 表示触发限流，至少等待一分钟再试。容量内网址仍可继续生成。</p>
+<p>浏览器先用原网址编码。只有超出容量时，才向 <code>https://da.gd/s</code> 提交 POST 表单，字段为 <code>url=原网址</code>，接受纯文本响应。请求不含密钥、Cookie 或 Referer，禁止重定向，20 秒超时。</p>
+<p>去除响应首尾空白后，只接受形如 <code>https://da.gd/Abc123</code> 的 HTTPS 短链。编号为 1～10 个字母、数字、下划线或连字符，不接受额外路径、查询参数或片段。按原射线与纠错设置重新编码，若仍放不下，提示改用自动设置。历史图片无需重新生成，旧短链由原服务商负责跳转。</p>
+<p>成功结果仅缓存在当前页面内存，最多 256 条。更改输入后取消旧任务，失败不缓存。HTTP 429 表示触发限流，至少等待一分钟再试。容量内网址仍可继续生成。</p>
 <h2 id="section-15">15. 二维码图片转换</h2>
 <h3>15.1 读取与预处理</h3>
 <p><code>src/services/qr-reader.js</code> 提供 <code>SunflowerQR.read(file, signal)</code>，返回识别文本。图片仅通过本地 Blob URL 加载；只接受 PNG、JPEG、WebP，文件上限 10 MB，解码后像素总数上限 4000 万。图片加载超过 15 秒则报错。</p>
@@ -378,7 +378,7 @@ const svg = SunflowerCode.renderSvg(result, { size: 1024, avatar: &#x27;&#x27; }
 <p>这些步骤处理的是输入的普通 QR Code，与后续葵花码的数据布局和绘制算法不同。当前取 jsQR 首个成功解码的文本；多码图片不会列出候选或保证选择顺序，因此应先裁剪为单个二维码。</p>
 <h3>15.3 内容校验与自动生成</h3>
 <p>识别成功不代表内容可生成葵花码。识别文本先经过同一个 <code>SunflowerCode.validateUrl</code>：仅接受 HTTP/HTTPS，遵循现有长度和格式限制。普通文字、Wi-Fi 内容及其他协议均报错，不自动跳转、不提交给短链服务。</p>
-<p>校验通过后，把原链接填入输入框，调用既有 <code>generate()</code>，沿用当前头像、尺寸、射线和纠错。仅容量错误触发第 14 节的 is.gd 自动转链。页面展示来源文件名与“查看链接”入口，不展示短链地址。</p>
+<p>校验通过后，把原链接填入输入框，调用既有 <code>generate()</code>，沿用当前头像、尺寸、射线和纠错。仅容量错误触发第 14 节的 da.gd 自动转链。页面展示来源文件名与“查看链接”入口，不展示短链地址。</p>
 <h3>15.4 并发与资源回收</h3>
 <p>每次图片选择创建一个 AbortController。开始识别时使旧预览失效、禁用导出；输入变动、编码参数变动、新图片选择或离开页面均取消旧任务。图片加载、每轮像素分析以及结果写入前检查取消状态，只有当前任务可以更新输入或显示错误。读取库的单轮同步解码不能中途打断，但分析尺寸有上限，迟到结果也不会覆盖新任务。</p>
 <p>无论成功、失败或取消都释放 Blob URL；分析完成后缩小临时 Canvas 以释放像素缓冲。选择后清空文件输入框，使同一张图片也可再次上传。识别失败时保留原网址和设置，由用户更换图片或重新生成。</p>
