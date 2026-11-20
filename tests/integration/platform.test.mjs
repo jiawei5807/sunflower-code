@@ -518,10 +518,18 @@ test('history pagination and date statistics use successful completion times', a
 test('browser short URLs are validated and preflight never counts', async (t) => {
   const s = await setup(t);
   const cookie = await s.login('admin');
-  assert.equal((await s.call('/api/shortener/config', { method: 'POST', cookie, body: {} })).status, 404);
+  assert.equal(
+    (await s.call('/api/shortener/config', { method: 'POST', cookie, body: {} })).status,
+    404,
+  );
   const body = { content: 'https://example.com/?q=' + 'a'.repeat(200), size: 512 };
   let i = 0;
-  for (const shortUrl of ['https://is.gd/Abc123', 'https://surl.id/Abc123', 'https://surl.id/r/Abc123']) {
+  for (const shortUrl of [
+    'https://da.gd/Test12',
+    'https://is.gd/Abc123',
+    'https://surl.id/Abc123',
+    'https://surl.id/r/Abc123',
+  ]) {
     const key = 'client-short-test-' + ++i;
     const send = (data) => s.call('/api/generate', { method: 'POST', cookie, body: data, key });
     const preflight = await send(body);
@@ -542,6 +550,12 @@ test('browser short URLs are validated and preflight never counts', async (t) =>
     assert.equal((await send({ ...body, shortUrl: 'https://surl.id/Changed' })).status, 409);
   }
   for (const shortUrl of [
+    'https://da.gd.evil.test/Test12',
+    'https://da.gd/Test12?x=1',
+    'https://da.gd/Test12#fragment',
+    'https://da.gd/a/b',
+    'http://da.gd/Test12',
+    'https://da.gd/12345678901',
     'https://is.gd.evil.test/Abc123',
     'https://is.gd/Abc123?x=1',
     'https://is.gd/a/b',
@@ -572,7 +586,7 @@ test('browser short URLs are validated and preflight never counts', async (t) =>
     ).status,
     400,
   );
-  assert.equal((await (await s.call('/api/history', { cookie })).json()).total, 3);
+  assert.equal((await (await s.call('/api/history', { cookie })).json()).total, 4);
   assert.equal(s.calls, 0);
 });
 

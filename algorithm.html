@@ -369,9 +369,9 @@ const svg = SunflowerCode.renderSvg(result, { size: 1024, avatar: &#x27;&#x27; }
 <p>浏览器向登录保护的 <code>POST /api/generate</code> 提交原网址、外观、编码参数和随机 <code>Idempotency-Key</code>。服务端校验会话、账号状态、同源 Origin、请求体、网址和参数，再运行编码器。仅 <code>CapacityError</code> 返回 HTTP 422 和 <code>SHORTEN_REQUIRED</code>，此时不写生成记录、不计数。</p>
 <p>浏览器收到该代码后申请短链，再用同一个请求标识提交原网址与 shortUrl。</p>
 <h3>14.2 外部请求</h3>
-<p>浏览器向 <code>https://is.gd/create.php</code> 发送 POST 表单，字段为 <code>format=json</code> 与 <code>url=原网址</code>。请求不带密钥、Cookie 或 Referer，禁止重定向，超时 20 秒。成功响应的 <code>shorturl</code> 用于编码。同一页面最多缓存 256 条成功结果。HTTP 429 或 JSON 错误码 3 触发一分钟冷却。</p>
+<p>浏览器向 <code>https://da.gd/s</code> 发送 POST 表单，字段为 <code>url=原网址</code>，接受纯文本响应。请求不带密钥、Cookie 或 Referer，禁止重定向，超时 20 秒。成功响应去除首尾空白并校验短链后用于编码。同一页面最多缓存 256 条成功结果。HTTP 429 触发一分钟冷却。</p>
 <h3>14.3 短链校验与保存</h3>
-<p>新生成的短链须为 <code>https://is.gd/</code> 加 5～30 个字母、数字或下划线。服务端也接受原有的 <code>https://surl.id/编号</code> 和 <code>https://surl.id/r/编号</code>，仅校验地址格式。按原设置重新编码仍超容量时，提示将射线与纠错改为自动。</p>
+<p>新生成的短链须为 <code>https://da.gd/</code> 加 1～10 个字母、数字、下划线或连字符，不接受额外路径、查询参数或片段。服务端继续接受原有的 <code>https://is.gd/编号</code>（编号为 5～30 个字母、数字或下划线）、<code>https://surl.id/编号</code> 和 <code>https://surl.id/r/编号</code>，仅校验地址格式。按原设置重新编码仍超容量时，提示将射线与纠错改为自动。</p>
 <p>服务端对原网址、shortUrl、外观、设置和来源计算 SHA-256 摘要，以 <code>(user_id, request_key)</code> 唯一约束登记 pending。同一标识相同内容的成功重试返回已有图片，不同内容拒绝。预检查没有写记录，因此携带短链的第二次提交可沿用标识。</p>
 <p>生成 SVG 写入私有 R2，成功后在 D1 标为 ready 并记录编码网址、外观和完成时间。只有 ready 计入历史和次数。明确失败标为 failed 并尝试清理对象；D1/R2 无跨资源事务，提交响应丢失时先核查状态，突然中断仍可能留下 pending 或孤立对象。</p>
 <h3>14.4 外观与统计</h3>
@@ -390,7 +390,7 @@ const svg = SunflowerCode.renderSvg(result, { size: 1024, avatar: &#x27;&#x27; }
 <p>这些步骤处理的是输入的普通 QR Code，与后续葵花码的数据布局和绘制算法不同。当前取 jsQR 首个成功解码的文本；多码图片不会列出候选或保证选择顺序，因此应先裁剪为单个二维码。</p>
 <h3>15.3 内容校验与自动生成</h3>
 <p>识别成功不代表内容可生成葵花码。浏览器先检查 HTTP/HTTPS 前缀，服务端再使用 <code>SunflowerCode.validateUrl</code> 完整校验网址，遵循现有长度和格式限制。普通文字、Wi-Fi 内容及其他协议均报错，不自动跳转、不提交给短链服务。</p>
-<p>校验通过后，把原链接填入输入框，调用既有 <code>generate()</code>，沿用当前头像、尺寸、射线和纠错。仅容量错误触发第 14 节的 is.gd 自动转链。页面展示来源文件名与“查看链接”入口，不展示短链地址。</p>
+<p>校验通过后，把原链接填入输入框，调用既有 <code>generate()</code>，沿用当前头像、尺寸、射线和纠错。仅容量错误触发第 14 节的 da.gd 自动转链。页面展示来源文件名与“查看链接”入口，不展示短链地址。</p>
 <h3>15.4 并发与资源回收</h3>
 <p>每次图片选择创建一个 AbortController。开始识别时使旧预览失效、禁用导出；输入变动、编码参数变动、新图片选择或离开页面均取消旧任务。图片加载、每轮像素分析以及结果写入前检查取消状态，只有当前任务可以更新输入或显示错误。读取库的单轮同步解码不能中途打断，但分析尺寸有上限，迟到结果也不会覆盖新任务。</p>
 <p>无论成功、失败或取消都释放 Blob URL；分析完成后缩小临时 Canvas 以释放像素缓冲。选择后清空文件输入框，使同一张图片也可再次上传。识别失败时保留原网址和设置，由用户更换图片或重新生成。</p>

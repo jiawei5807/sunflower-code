@@ -40,10 +40,10 @@ D1 与 R2 不支持跨资源事务。明确失败会标记 failed 并尽力删�
 
 ## 本地环境
 
-npm run dev 自动构建并启动本地 workerd；D1 和 R2 持久化在 .wrangler/state，自动应用尚未执行的迁移。本地 .env.local 不进 Git。测试脚本使用临时目录和模拟 is.gd，不调用真实服务。
+npm run dev 自动构建并启动本地 workerd；D1 和 R2 持久化在 .wrangler/state，自动应用尚未执行的迁移。本地 .env.local 不进 Git。测试脚本使用临时目录和模拟 da.gd，不调用真实服务。
 
 本次改动仅验证本地 D1/R2，没有代为执行线上迁移或修改 main。授权状态见 NOTICE。
 
 ## 浏览器转链
 
-超容量时，浏览器直接向 `https://is.gd/create.php` 发送表单。无需转链密钥，使用 CSP 的站点需在 `connect-src` 中允许 `https://is.gd`。用户共用公网 IP 时也共用服务商额度。遇到限流请稍后重试，遇到连接失败请检查浏览器所在网络能否访问 is.gd。升级后可移除旧的 `ACEDATA_TOKEN`。历史图片中的旧短链仍由原服务商负责跳转。
+超容量时，浏览器直接向 `https://da.gd/s` 发送表单。无需转链密钥，使用 CSP 的站点需在 `connect-src` 中允许 `https://da.gd`。收到 HTTP 429 时页面暂停转链请求一分钟。遇到限流请稍后重试，遇到连接失败请检查浏览器所在网络能否访问 da.gd。升级后可移除旧的 `ACEDATA_TOKEN`。历史图片中的旧短链仍由原服务商负责跳转。
